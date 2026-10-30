@@ -5,7 +5,7 @@
 
 #include <stdarg.h>
 
-struct regs;
+struct Registers;
 
 /* VGA text driver (owner: Resource Management) */
 void vga_init(void);
@@ -21,6 +21,6 @@ void panic(const char *format, ...)
     __attribute__((format(printf, 1, 2), noreturn));
 
 /* Prints the saved CPU state, then panics. */
-void panic_regs(const struct regs *r, const char *reason) __attribute__((noreturn));
+void panic_with_registers(const struct Registers *r, const char *reason) __attribute__((noreturn));
 
 #endif

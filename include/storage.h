@@ -27,7 +27,7 @@ struct buffer {
     bool valid;
     bool busy;                  /* a thread is using this buffer */
     uint32_t last_used;
-    struct wait_queue waiters;
+    struct WaitQueue waiters;
     uint8_t *data;
 };
 

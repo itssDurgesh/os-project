@@ -26,14 +26,23 @@ enum process_state {
     PROCESS_TERMINATED,
 };
 
-struct pcb;
+struct Process;
 
-struct wait_queue {
-    struct pcb *head;
-    struct pcb *tail;
+// A line of processes. It is also used for the ready queues.
+class WaitQueue {
+public:
+    void add(struct Process *process);
+    struct Process *remove_first();
+    void sleep();
+    void wake_one();
+    void wake_all();
+    bool is_empty() const;
+
+    struct Process *head = nullptr;
+    struct Process *tail = nullptr;
 };
 
-struct pcb {
+struct Process {
     int pid;
     int parent_pid;
     int uid;
@@ -55,7 +64,7 @@ struct pcb {
     uint32_t kernel_stack_top;
 
     uint32_t *page_dir;
-    uint32_t heap_end;          /* current program break */
+    uint32_t heap_end;          /* current_process program break */
 
     struct file **files;        /* per-process file descriptor table */
     struct inode *cwd;
@@ -64,48 +73,41 @@ struct pcb {
     void (*entry)(void *);
     void *argument;
 
-    struct pcb *queue_next;     /* link in a ready queue or wait queue */
-    struct pcb *list_next;      /* link in the list of all processes */
+    struct Process *queue_next;     /* link in a ready queue or wait queue */
+    struct Process *list_next;      /* link in the list of all processes */
 };
 
-extern struct pcb *current;
+extern struct Process *current_process;
 
 /* Scheduler */
-void sched_init(void);
+void scheduler_init(void);
 void schedule(void);
-void sched_tick(void);
-void sched_check_preempt(void);
-void sched_checkpoint(void);    /* lets a long kernel loop give up the CPU */
-void sched_idle_loop(void) __attribute__((noreturn));
+void scheduler_tick(void);
+void switch_process_if_needed(void);
+void give_up_cpu_if_needed(void);    /* lets a long kernel loop give up the CPU */
+void idle_loop(void) __attribute__((noreturn));
 
 /* Kernel threads */
-struct pcb *thread_create(const char *name, int priority,
+struct Process *thread_create(const char *name, int priority,
                           void (*entry)(void *), void *argument);
 void thread_exit(int status) __attribute__((noreturn));
-int thread_join(struct pcb *thread);
+int thread_join(struct Process *thread);
 void thread_sleep(uint32_t ticks);
 
 /* Pieces of thread creation that fork() also needs */
-struct pcb *pcb_create(const char *name, int priority);
-void pcb_free(struct pcb *process);
-void kernel_stack_alloc(struct pcb *process);
-void sched_add_new(struct pcb *process);
-struct pcb *process_list(void);
+struct Process *create_process(const char *name, int priority);
+void delete_process(struct Process *process);
+void kernel_stack_alloc(struct Process *process);
+void add_new_process(struct Process *process);
+struct Process *process_list(void);
 
 /* User processes */
 void process_init(void);
 void process_start_first(const char *path) __attribute__((noreturn));
-int process_exec(const char *path, char *const argv[], struct regs *r);
-int process_fork(const struct regs *r);
+int process_exec(const char *path, char *const argv[], struct Registers *r);
+int process_fork(const struct Registers *r);
 void process_exit(int status) __attribute__((noreturn));
 int process_wait(int *status);
-void process_fault(const struct regs *r, const char *reason) __attribute__((noreturn));
-
-/* Wait queues */
-void wait_queue_init(struct wait_queue *queue);
-void wait_queue_sleep(struct wait_queue *queue);
-void wait_queue_wake_one(struct wait_queue *queue);
-void wait_queue_wake_all(struct wait_queue *queue);
-bool wait_queue_empty(const struct wait_queue *queue);
+void process_fault(const struct Registers *r, const char *reason) __attribute__((noreturn));
 
 #endif

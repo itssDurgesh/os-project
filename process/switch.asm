@@ -1,11 +1,11 @@
-; void switch_context(uint32_t *saved_esp, uint32_t next_esp)
+; void switch_stacks(uint32_t *saved_esp, uint32_t next_esp)
 ; Saves the registers C expects to survive a call, stores this stack pointer,
 ; then loads the next thread's stack and returns on it.
 
 section .text
-global switch_context
+global switch_stacks
 
-switch_context:
+switch_stacks:
     push ebx
     push esi
     push edi

@@ -1,10 +1,10 @@
 ; One small entry stub per interrupt vector. Each stub pushes the vector number
-; and jumps to isr_common, which saves the CPU state and calls isr_dispatch().
+; and jumps to common_interrupt_code, which saves the CPU state and calls handle_interrupt().
 ; The CPU pushes an error code for some exceptions, so the other stubs push a
-; dummy 0 to keep struct regs the same shape for every interrupt.
+; dummy 0 to keep struct Registers the same shape for every interrupt.
 
 section .text
-extern isr_dispatch
+extern handle_interrupt
 
 %macro ISR_STUB 1
 isr_stub_%1:
@@ -13,7 +13,7 @@ isr_stub_%1:
         push dword 0
     %endif
     push dword %1
-    jmp isr_common
+    jmp common_interrupt_code
 %endmacro
 
 %assign vector 0
@@ -22,7 +22,7 @@ isr_stub_%1:
     %assign vector vector + 1
 %endrep
 
-isr_common:
+common_interrupt_code:
     pusha
     push ds
     push es
@@ -36,13 +36,13 @@ isr_common:
     mov gs, ax
 
     cld
-    push esp                        ; argument: struct regs *
-    call isr_dispatch
+    push esp                        ; argument: struct Registers *
+    call handle_interrupt
     add esp, 4
 
-; New user processes also start here, with a struct regs built by hand.
-global isr_return
-isr_return:
+; New user processes also start here, with a struct Registers built by hand.
+global return_from_interrupt
+return_from_interrupt:
     pop gs
     pop fs
     pop es
@@ -52,13 +52,13 @@ isr_return:
     iret
 
 section .data
-global isr_table
+global interrupt_stubs
 
 %macro ISR_ENTRY 1
     dd isr_stub_%1
 %endmacro
 
-isr_table:
+interrupt_stubs:
 %assign vector 0
 %rep 256
     ISR_ENTRY vector

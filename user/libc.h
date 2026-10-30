@@ -18,7 +18,7 @@
 /* System calls. On failure they return a negative error number. */
 int fork(void);
 int exec(const char *path, char *const argv[]);
-void exit(int status) __attribute__((noreturn));
+extern "C" void exit(int status) __attribute__((noreturn));
 int wait(int *status);
 int getpid(void);
 int getuid(void);
@@ -51,9 +51,9 @@ int strcmp(const char *a, const char *b);
 int strncmp(const char *a, const char *b, size_t count);
 char *strcpy(char *dest, const char *src);
 char *strchr(const char *text, int c);
-void *memset(void *dest, int value, size_t count);
-void *memcpy(void *dest, const void *src, size_t count);
-int memcmp(const void *a, const void *b, size_t count);
+extern "C" void *memset(void *dest, int value, size_t count);
+extern "C" void *memcpy(void *dest, const void *src, size_t count);
+extern "C" int memcmp(const void *a, const void *b, size_t count);
 int atoi(const char *text);
 
 /* Output. Supports %d %u %x %s %c %%. */

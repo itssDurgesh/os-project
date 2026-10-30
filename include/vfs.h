@@ -82,8 +82,8 @@ void vfs_mount(const char *path, struct inode *root);
 struct inode *vfs_root(void);
 
 /* Inodes */
-void inode_get(struct inode *inode);
-void inode_put(struct inode *inode);
+void hold_inode(struct inode *inode);
+void release_inode(struct inode *inode);
 
 /* Paths. `base` is the directory that a relative path starts from. */
 int vfs_lookup(struct inode *base, const char *path, struct inode **result);
@@ -101,7 +101,7 @@ int file_open(struct inode *base, const char *path, uint32_t flags, uint32_t mod
               uint32_t uid, uint32_t gid, struct file **result);
 struct file *file_from_inode(struct inode *inode, uint32_t flags);
 struct file *file_alloc(void);
-void file_retain(struct file *file);
+void hold_file(struct file *file);
 void file_close(struct file *file);
 int file_read(struct file *file, void *buffer, uint32_t count);
 int file_write(struct file *file, const void *buffer, uint32_t count);

@@ -1,9 +1,9 @@
-/* Synchronization primitives (owner: Resource Management).
- *
- * The OS runs on one core and the kernel isn't preempted, so only an interrupt
- * handler can interrupt kernel code. A spinlock therefore just turns interrupts
- * off. Mutexes, semaphores and condition variables put the caller to sleep, so
- * they can only be used from a thread, never from an interrupt handler. */
+// Locks for the kernel (owner: Resource Management).
+//
+// Our OS has one CPU and the kernel is not preempted, so the only thing that can
+// interrupt kernel code is an interrupt handler. That is why a Spinlock just
+// turns interrupts off. The other locks put the process to sleep, so they can
+// only be used by a process, never inside an interrupt handler.
 
 #ifndef SYNC_H
 #define SYNC_H
@@ -13,41 +13,46 @@
 
 #include "process.h"
 
-struct spinlock {
-    bool locked;
-    uint32_t saved_flags;
+class Spinlock {
+public:
+    void lock();
+    void unlock();
+
+private:
+    bool is_locked = false;
+    uint32_t saved_flags = 0;
 };
 
-struct mutex {
-    bool locked;
-    struct pcb *owner;
-    struct wait_queue waiters;
+class Mutex {
+public:
+    void lock();
+    void unlock();
+
+private:
+    bool is_locked = false;
+    Process *owner = nullptr;
+    WaitQueue waiting_list;
 };
 
-struct semaphore {
-    int count;
-    struct wait_queue waiters;
+class Semaphore {
+public:
+    void set_count(int new_count);
+    void wait();
+    void post();
+
+private:
+    int count = 0;
+    WaitQueue waiting_list;
 };
 
-struct condvar {
-    struct wait_queue waiters;
+class CondVar {
+public:
+    void wait(Mutex &mutex);
+    void signal();
+    void broadcast();
+
+private:
+    WaitQueue waiting_list;
 };
-
-void spinlock_init(struct spinlock *lock);
-void spin_lock(struct spinlock *lock);
-void spin_unlock(struct spinlock *lock);
-
-void mutex_init(struct mutex *mutex);
-void mutex_lock(struct mutex *mutex);
-void mutex_unlock(struct mutex *mutex);
-
-void semaphore_init(struct semaphore *semaphore, int count);
-void semaphore_wait(struct semaphore *semaphore);
-void semaphore_post(struct semaphore *semaphore);
-
-void condvar_init(struct condvar *condvar);
-void condvar_wait(struct condvar *condvar, struct mutex *mutex);
-void condvar_signal(struct condvar *condvar);
-void condvar_broadcast(struct condvar *condvar);
 
 #endif

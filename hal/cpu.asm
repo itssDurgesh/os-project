@@ -23,13 +23,13 @@ gdt_load:
     ltr ax
     ret
 
-; void enter_user_mode(const struct regs *r)
-; Starts the first user program by "returning" through a struct regs built by hand.
+; void enter_user_mode(const struct Registers *r)
+; Starts the first user program by "returning" through a struct Registers built by hand.
 global enter_user_mode
-extern isr_return
+extern return_from_interrupt
 
 enter_user_mode:
     mov esp, [esp + 4]
-    jmp isr_return
+    jmp return_from_interrupt
 
 section .note.GNU-stack noalloc noexec nowrite progbits

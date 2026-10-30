@@ -1,12 +1,15 @@
-CC      := gcc
+CXX     := g++
 AS      := nasm
 LD      := ld
 QEMU    := qemu-system-i386
 
-CFLAGS  := -m32 -std=gnu11 -ffreestanding -fno-pie -fno-stack-protector \
-           -fcf-protection=none -fno-asynchronous-unwind-tables \
-           -fno-omit-frame-pointer -mno-sse -mno-mmx -mno-80387 \
-           -O2 -g -Wall -Wextra -Iinclude -MMD -MP
+CXXFLAGS := -m32 -std=gnu++20 -ffreestanding -fno-pie -fno-stack-protector \
+            -fcf-protection=none -fno-asynchronous-unwind-tables \
+            -fno-omit-frame-pointer -mno-sse -mno-mmx -mno-80387 \
+            -fno-exceptions -fno-rtti -fno-threadsafe-statics \
+            -fno-use-cxa-atexit -nostdlib \
+            -Wno-missing-field-initializers \
+            -O2 -g -Wall -Wextra -Iinclude -MMD -MP
 ASFLAGS := -f elf32 -g
 LDFLAGS := -m elf_i386 -T linker.ld --build-id=none -z noexecstack
 
@@ -15,10 +18,10 @@ IMAGE   := $(BUILD)/os.img
 KERNEL  := $(BUILD)/kernel.elf
 
 # One folder per subsystem owner, so each teammate can find their part.
-C_SRCS   := $(wildcard hal/*.c kernel/*.c memory/*.c process/*.c resource/*.c \
-                       storage/*.c fs/*.c)
+CXX_SRCS := $(wildcard hal/*.cpp kernel/*.cpp memory/*.cpp process/*.cpp \
+                       resource/*.cpp storage/*.cpp fs/*.cpp)
 ASM_SRCS := $(wildcard boot/*.asm hal/*.asm process/*.asm)
-OBJS     := $(C_SRCS:%.c=$(BUILD)/%.o) $(ASM_SRCS:%.asm=$(BUILD)/%.asm.o)
+OBJS     := $(CXX_SRCS:%.cpp=$(BUILD)/%.o) $(ASM_SRCS:%.asm=$(BUILD)/%.asm.o)
 
 # Must match package/run.bat so every laptop gets the same virtual PC.
 QEMU_FLAGS := -machine pc -cpu qemu32 -m 128M \
@@ -30,9 +33,9 @@ QEMU_FLAGS := -machine pc -cpu qemu32 -m 128M \
 
 all: $(IMAGE)
 
-$(BUILD)/%.o: %.c
+$(BUILD)/%.o: %.cpp
 	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/%.asm.o: %.asm
 	mkdir -p $(dir $@)
@@ -43,19 +46,19 @@ $(KERNEL): $(OBJS) linker.ld
 
 # User programs: each file in user/bin becomes one program, linked with crt0 and
 # the small C library.
-USER_CFLAGS := $(filter-out -Iinclude,$(CFLAGS)) -Iuser -Iinclude
+USER_CXXFLAGS := $(filter-out -Iinclude,$(CXXFLAGS)) -Iuser -Iinclude
 USER_LIB    := $(BUILD)/user/crt0.asm.o $(BUILD)/user/libc.o \
                $(BUILD)/user/users.o $(BUILD)/user/sha256.o
-USER_SRCS   := $(wildcard user/bin/*.c)
-USER_BINS   := $(USER_SRCS:user/bin/%.c=$(BUILD)/user/bin/%)
+USER_SRCS   := $(wildcard user/bin/*.cpp)
+USER_BINS   := $(USER_SRCS:user/bin/%.cpp=$(BUILD)/user/bin/%)
 
 $(BUILD)/user/crt0.asm.o: user/crt0.asm
 	mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-$(BUILD)/user/%.o: user/%.c
+$(BUILD)/user/%.o: user/%.cpp
 	mkdir -p $(dir $@)
-	$(CC) $(USER_CFLAGS) -c $< -o $@
+	$(CXX) $(USER_CXXFLAGS) -c $< -o $@
 
 $(BUILD)/user/bin/%: $(BUILD)/user/bin/%.o $(USER_LIB) user/user.ld
 	$(LD) -m elf_i386 -T user/user.ld --build-id=none -z noexecstack \

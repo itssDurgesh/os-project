@@ -44,7 +44,8 @@ $(KERNEL): $(OBJS) linker.ld
 # User programs: each file in user/bin becomes one program, linked with crt0 and
 # the small C library.
 USER_CFLAGS := $(filter-out -Iinclude,$(CFLAGS)) -Iuser -Iinclude
-USER_LIB    := $(BUILD)/user/crt0.asm.o $(BUILD)/user/libc.o
+USER_LIB    := $(BUILD)/user/crt0.asm.o $(BUILD)/user/libc.o \
+               $(BUILD)/user/users.o $(BUILD)/user/sha256.o
 USER_SRCS   := $(wildcard user/bin/*.c)
 USER_BINS   := $(USER_SRCS:user/bin/%.c=$(BUILD)/user/bin/%)
 
@@ -63,13 +64,16 @@ $(BUILD)/user/bin/%: $(BUILD)/user/bin/%.o $(USER_LIB) user/user.ld
 ROOTFS  := $(BUILD)/rootfs
 
 # The files that appear in / when the OS runs.
-$(ROOTFS).stamp: $(shell find rootfs -type f 2>/dev/null) tools/mkbigfile.py $(USER_BINS)
+$(ROOTFS).stamp: $(shell find rootfs -type f 2>/dev/null) tools/mkbigfile.py \
+                 tools/mkusers.py $(USER_BINS)
 	rm -rf $(ROOTFS)
-	mkdir -p $(ROOTFS)/bin $(ROOTFS)/sbin $(ROOTFS)/dev $(ROOTFS)/home
+	mkdir -p $(ROOTFS)/bin $(ROOTFS)/sbin $(ROOTFS)/dev $(ROOTFS)/home/student $(ROOTFS)/tmp
+	chmod 777 $(ROOTFS)/tmp
 	cp -r rootfs/. $(ROOTFS)/
 	cp $(USER_BINS) $(ROOTFS)/bin/
 	mv $(ROOTFS)/bin/init $(ROOTFS)/sbin/init
 	python3 tools/mkbigfile.py $(ROOTFS)/etc/big.bin
+	python3 tools/mkusers.py $(ROOTFS)/etc
 	touch $@
 
 $(IMAGE): $(KERNEL) boot/grub.cfg tools/mkimage.sh $(ROOTFS).stamp
@@ -93,4 +97,5 @@ dist: $(IMAGE)
 clean:
 	rm -rf $(BUILD)
 
--include $(OBJS:.o=.d) $(USER_BINS:%=%.d) $(BUILD)/user/libc.d
+-include $(OBJS:.o=.d) $(USER_BINS:%=%.d) $(BUILD)/user/libc.d \
+         $(BUILD)/user/users.d $(BUILD)/user/sha256.d

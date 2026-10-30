@@ -174,7 +174,8 @@ static bool run_builtin(const struct command *command)
         return true;
     }
 
-    if (strcmp(command->argv[0], "exit") == 0)
+    if (strcmp(command->argv[0], "exit") == 0 ||
+        strcmp(command->argv[0], "logout") == 0)
         exit(0);
 
     return false;
@@ -182,8 +183,12 @@ static bool run_builtin(const struct command *command)
 
 int main(void)
 {
-    printf("\nWelcome to the OS Project shell.\n");
-    printf("Try: ls, cat, echo, mkdir, rm, wc, pwd, cd, and pipes like ls | wc\n");
+    struct user user;
+    bool known = user_by_uid(getuid(), &user);
+
+    printf("\nWelcome to the OS Project shell, %s.\n", known ? user.name : "user");
+    printf("Try: ls -l, cat, echo, mkdir, rm, wc, pwd, cd, ps, whoami, chmod, kill,\n");
+    printf("pipes like ls / | wc, and exit to log out.\n");
 
     for (;;) {
         char cwd[MAX_PATH];
@@ -191,7 +196,7 @@ int main(void)
         int count;
 
         getcwd(cwd, sizeof(cwd));
-        printf("%s $ ", cwd);
+        printf("%s %s ", cwd, (getuid() == 0) ? "#" : "$");
 
         length = read(STDIN, line, LINE_LENGTH - 1);
         if (length <= 0) {

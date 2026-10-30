@@ -254,6 +254,42 @@ int sys_getcwd(struct regs *r)
     return 0;
 }
 
+int sys_chmod(struct regs *r)
+{
+    char path[MAX_PATH];
+    struct inode *inode;
+    int status = copy_string_from_user(path, (const char *)r->ebx, MAX_PATH);
+
+    if (status != 0)
+        return status;
+
+    status = vfs_lookup(current->cwd, path, &inode);
+    if (status != 0)
+        return status;
+
+    if (current->uid != 0 && (uint32_t)current->uid != inode->uid) {
+        status = -EPERM;
+    } else if (inode->ops->sync == NULL) {
+        status = -EACCES;
+    } else {
+        inode->mode = r->ecx & 0777;
+        status = inode->ops->sync(inode);
+    }
+
+    inode_put(inode);
+    return status;
+}
+
+/* login turns echo off while the password is typed. */
+int sys_set_echo(struct regs *r)
+{
+    if (current->uid != 0)
+        return -EPERM;
+
+    console_set_echo(r->ebx != 0);
+    return 0;
+}
+
 int sys_dup2(struct regs *r)
 {
     int old_fd = (int)r->ebx;

@@ -39,6 +39,11 @@ int chdir(const char *path);
 int getcwd(char *buffer, uint32_t size);
 int dup2(int old_fd, int new_fd);
 int pipe(int fds[2]);
+int setuid(int uid);
+int setgid(int gid);
+int set_echo(bool enabled);
+int procinfo(int index, struct procinfo *info);
+int chmod(const char *path, int mode);
 
 /* Strings and memory */
 size_t strlen(const char *text);
@@ -55,6 +60,22 @@ int atoi(const char *text);
 int printf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 int fprintf(int fd, const char *format, ...) __attribute__((format(printf, 2, 3)));
 const char *error_text(int error);
+
+/* Users: read from /etc/passwd and /etc/shadow */
+struct user {
+    char name[32];
+    int uid;
+    int gid;
+    char home[64];
+    char shell[64];
+};
+
+bool user_by_name(const char *name, struct user *result);
+bool user_by_uid(int uid, struct user *result);
+bool user_check_password(const char *name, const char *password);
+
+/* SHA-256. `digest` receives 32 bytes. */
+void sha256(const void *data, size_t length, uint8_t digest[32]);
 
 /* Heap */
 void *malloc(size_t size);

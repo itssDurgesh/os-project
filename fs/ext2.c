@@ -1014,6 +1014,16 @@ static int ext2_readdir(struct inode *directory, uint32_t *offset, struct dirent
     return status;
 }
 
+static int ext2_sync(struct inode *inode)
+{
+    int result;
+
+    mutex_lock(&fs.lock);
+    result = save_inode(inode);
+    mutex_unlock(&fs.lock);
+    return result;
+}
+
 /* Runs when nobody holds the inode any more. A file with no names left is
  * finally deleted here. */
 static void ext2_release(struct inode *inode)
@@ -1053,6 +1063,7 @@ static const struct inode_ops ext2_ops = {
     .unlink = ext2_unlink,
     .rmdir = ext2_rmdir,
     .readdir = ext2_readdir,
+    .sync = ext2_sync,
     .release = ext2_release,
 };
 

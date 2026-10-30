@@ -30,6 +30,16 @@ int chdir(const char *path) { return syscall3(SYS_CHDIR, (uint32_t)path, 0, 0); 
 int pipe(int fds[2]) { return syscall3(SYS_PIPE, (uint32_t)fds, 0, 0); }
 int dup2(int old_fd, int new_fd) { return syscall3(SYS_DUP2, old_fd, new_fd, 0); }
 
+int setuid(int uid) { return syscall3(SYS_SETUID, uid, 0, 0); }
+int setgid(int gid) { return syscall3(SYS_SETGID, gid, 0, 0); }
+int set_echo(bool enabled) { return syscall3(SYS_SET_ECHO, enabled, 0, 0); }
+int chmod(const char *path, int mode) { return syscall3(SYS_CHMOD, (uint32_t)path, mode, 0); }
+
+int procinfo(int index, struct procinfo *info)
+{
+    return syscall3(SYS_PROCINFO, index, (uint32_t)info, 0);
+}
+
 int exec(const char *path, char *const argv[])
 {
     return syscall3(SYS_EXEC, (uint32_t)path, (uint32_t)argv, 0);

@@ -23,6 +23,12 @@
 static char line[LINE_LENGTH];
 static uint32_t line_length;
 static uint32_t line_position;
+static bool echo_enabled = true;
+
+void console_set_echo(bool enabled)
+{
+    echo_enabled = enabled;
+}
 
 /* Reads a whole line with echo and backspace. Returns false on Ctrl+D. */
 static bool read_line(void)
@@ -39,7 +45,8 @@ static bool read_line(void)
         if (c == KEY_BACKSPACE || c == KEY_DELETE) {
             if (line_length > 0) {
                 line_length--;
-                kprintf("\b");
+                if (echo_enabled)
+                    kprintf("\b");
             }
             continue;
         }
@@ -49,7 +56,8 @@ static bool read_line(void)
 
         if (c == '\n' || line_length < LINE_LENGTH - 1) {
             line[line_length++] = c;
-            kprintf("%c", c);
+            if (echo_enabled)
+                kprintf("%c", c);
         }
 
         if (c == '\n')

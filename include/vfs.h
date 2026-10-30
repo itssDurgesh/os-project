@@ -39,6 +39,7 @@ struct inode_ops {
     int (*unlink)(struct inode *directory, const char *name);
     int (*rmdir)(struct inode *directory, const char *name);
     int (*readdir)(struct inode *directory, uint32_t *offset, struct dirent *entry);
+    int (*sync)(struct inode *inode);       /* saves changed details */
     void (*release)(struct inode *inode);   /* the last reference has gone */
 };
 
@@ -105,6 +106,9 @@ void file_close(struct file *file);
 int file_read(struct file *file, void *buffer, uint32_t count);
 int file_write(struct file *file, const void *buffer, uint32_t count);
 int file_seek(struct file *file, int offset, int whence);
+
+/* Console */
+void console_set_echo(bool enabled);
 
 /* Filesystems */
 struct inode *ext2_mount(int partition);

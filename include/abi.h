@@ -49,7 +49,13 @@
 #define SYS_RES_REQUEST 41
 #define SYS_RES_RELEASE 42
 
-#define SYSCALL_COUNT   43
+#define SYS_SETUID      43
+#define SYS_SETGID      44
+#define SYS_SET_ECHO    45
+#define SYS_PROCINFO    46
+#define SYS_CHMOD       47
+
+#define SYSCALL_COUNT   48
 
 #define MAX_FILE_NAME 255
 #define MAX_PATH      256
@@ -85,6 +91,18 @@ struct stat {
     uint32_t gid;
     uint32_t links;
     uint32_t size;
+};
+
+#define PROCESS_NAME_LENGTH 32
+
+struct procinfo {
+    int pid;
+    int parent_pid;
+    int uid;
+    int state;
+    int priority;
+    uint32_t cpu_ticks;
+    char name[PROCESS_NAME_LENGTH];
 };
 
 #endif

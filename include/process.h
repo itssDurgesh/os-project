@@ -18,8 +18,6 @@ struct inode;
 #define TIME_QUANTUM_TICKS 2    /* 2 ticks of 10 ms = 20 ms */
 #define AGING_LIMIT_TICKS  100  /* 1 second in a ready queue moves a process up */
 
-#define PROCESS_NAME_LENGTH 32
-
 enum process_state {
     PROCESS_NEW,
     PROCESS_READY,

@@ -111,6 +111,50 @@ int sys_getgid(struct regs *r)
     return current->gid;
 }
 
+/* Only root can change identity. This is how login becomes the user. */
+int sys_setuid(struct regs *r)
+{
+    if (current->uid != 0)
+        return -EPERM;
+
+    current->uid = (int)r->ebx;
+    return 0;
+}
+
+int sys_setgid(struct regs *r)
+{
+    if (current->uid != 0)
+        return -EPERM;
+
+    current->gid = (int)r->ebx;
+    return 0;
+}
+
+/* Fills in details of the process at this position in the list, for ps. */
+int sys_procinfo(struct regs *r)
+{
+    int index = (int)r->ebx;
+    struct procinfo *output = (struct procinfo *)r->ecx;
+
+    if (!user_range_valid(output, sizeof(*output), true))
+        return -EFAULT;
+
+    for (struct pcb *process = process_list(); process != NULL;
+         process = process->list_next) {
+        if (index-- == 0) {
+            output->pid = process->pid;
+            output->parent_pid = process->parent_pid;
+            output->uid = process->uid;
+            output->state = process->state;
+            output->priority = process->priority;
+            output->cpu_ticks = process->cpu_ticks;
+            strlcpy(output->name, process->name, PROCESS_NAME_LENGTH);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Sleeps for a number of milliseconds. */
 int sys_sleep(struct regs *r)
 {

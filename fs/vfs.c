@@ -6,6 +6,7 @@
 #include "errno.h"
 #include "kstring.h"
 #include "memory.h"
+#include "process.h"
 #include "vfs.h"
 
 #define MAX_MOUNTS 4
@@ -102,7 +103,11 @@ static int walk(struct inode *base, const char *path, struct inode **result,
             return -ENOTDIR;
         }
 
-        status = inode->ops->lookup(inode, name, &next);
+        /* Searching a directory needs its execute permission. */
+        status = vfs_check_permission(inode, current->uid, current->gid,
+                                      PERMISSION_EXEC);
+        if (status == 0)
+            status = inode->ops->lookup(inode, name, &next);
         inode_put(inode);
         if (status != 0)
             return status;
@@ -164,8 +169,12 @@ int vfs_unlink(struct inode *base, const char *path)
     if (status != 0)
         return status;
 
-    status = (directory->ops->unlink != NULL)
-                 ? directory->ops->unlink(directory, name) : -EACCES;
+    if (directory->ops->unlink == NULL)
+        status = -EACCES;
+    else if ((status = vfs_check_permission(directory, current->uid, current->gid,
+                                            PERMISSION_WRITE)) == 0)
+        status = directory->ops->unlink(directory, name);
+
     inode_put(directory);
     return status;
 }
@@ -181,9 +190,11 @@ int vfs_rmdir(struct inode *base, const char *path)
 
     if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
         status = -EINVAL;
-    else
-        status = (directory->ops->rmdir != NULL)
-                     ? directory->ops->rmdir(directory, name) : -EACCES;
+    else if (directory->ops->rmdir == NULL)
+        status = -EACCES;
+    else if ((status = vfs_check_permission(directory, current->uid, current->gid,
+                                            PERMISSION_WRITE)) == 0)
+        status = directory->ops->rmdir(directory, name);
 
     inode_put(directory);
     return status;

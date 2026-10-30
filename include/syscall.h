@@ -20,6 +20,9 @@ int sys_sleep(struct regs *r);
 int sys_getuid(struct regs *r);
 int sys_getgid(struct regs *r);
 int sys_pipe(struct regs *r);
+int sys_setuid(struct regs *r);
+int sys_setgid(struct regs *r);
+int sys_procinfo(struct regs *r);
 
 /* Memory Management: memory/sys_memory.c */
 int sys_brk(struct regs *r);
@@ -39,5 +42,7 @@ int sys_readdir(struct regs *r);
 int sys_chdir(struct regs *r);
 int sys_getcwd(struct regs *r);
 int sys_dup2(struct regs *r);
+int sys_chmod(struct regs *r);
+int sys_set_echo(struct regs *r);
 
 #endif

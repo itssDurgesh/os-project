@@ -57,6 +57,19 @@ start=$SWAP_START, size=$SWAP_SECTORS, type=82
 start=$DATA_START, size=$DATA_SECTORS, type=83
 EOF
 
+# mke2fs copies owners from this PC. On the OS, files belong to root, and each
+# user owns their home folder.
+(
+    cd "$ROOTFS"
+    find . -mindepth 1 | sed 's|^\.||' | while read -r path; do
+        echo "sif \"$path\" uid 0"
+        echo "sif \"$path\" gid 0"
+    done
+    echo 'sif /home/student uid 1000'
+    echo 'sif /home/student gid 1000'
+) > "$WORK/owners.cmd"
+/usr/sbin/debugfs -w -f "$WORK/owners.cmd" "$WORK/data.ext2" > /dev/null 2>&1
+
 dd if="$WORK/kernel.ext2" of="$IMAGE" bs=$SECTOR seek=$FIRST_PARTITION conv=notrunc status=none
 dd if="$WORK/data.ext2" of="$IMAGE" bs=$SECTOR seek=$DATA_START conv=notrunc status=none
 

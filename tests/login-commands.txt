@@ -1,0 +1,13 @@
+root
+wrongpassword
+student
+student
+whoami
+pwd
+cat /etc/hello.txt
+cat /etc/shadow
+exit
+root
+root
+whoami
+echo login-done

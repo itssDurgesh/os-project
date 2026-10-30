@@ -99,6 +99,11 @@ keyboard_test() {
     rm -f "$log"
     {
         sleep 3
+        for key in r o o t ret r o o t ret; do
+            echo "sendkey $key"
+            sleep 0.1
+        done
+        sleep 1
         for key in e c h o spc shift-h i spc shift-1 ret; do
             echo "sendkey $key"
             sleep 0.1
@@ -113,6 +118,24 @@ keyboard_test() {
     report "keyboard" "$log" "^Hi !"
 }
 
+# Wrong password, a normal user being refused, then logging out and back in.
+login_test() {
+    local log=build/test-login.log
+
+    SHELL_DELAY=0.6 shell_test login tests/login-commands.txt "login-done"
+    report "login-wrong-password" "$log" "Login incorrect"
+    report "login-as-student" "$log" "^student$"
+    report "login-refused" "$log" "/etc/shadow: permission denied"
+    report "login-root-again" "$log" "^root$"
+    if grep -q "root:" "$log"; then
+        echo "FAIL  password file leaked to a normal user"
+        failed=$((failed + 1))
+    else
+        echo "PASS  shadow file stayed hidden"
+        passed=$((passed + 1))
+    fi
+}
+
 kernel_test ticks "tick 50"
 kernel_test panic "unhandled CPU exception"
 kernel_test memory "TEST-PASS"
@@ -125,6 +148,8 @@ image_test
 keyboard_test
 shell_test shell tests/shell-commands.txt "shell-commands-done"
 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
+login_test
+shell_test permtest tests/permtest-commands.txt "TEST-PASS permtest"
 filesystem_test
 
 echo

@@ -33,6 +33,11 @@ static const syscall_handler_t syscall_table[SYSCALL_COUNT] = {
     [SYS_PIPE] = sys_pipe,
     [SYS_GETUID] = sys_getuid,
     [SYS_GETGID] = sys_getgid,
+    [SYS_SETUID] = sys_setuid,
+    [SYS_SETGID] = sys_setgid,
+    [SYS_SET_ECHO] = sys_set_echo,
+    [SYS_PROCINFO] = sys_procinfo,
+    [SYS_CHMOD] = sys_chmod,
 };
 
 static void syscall_interrupt(struct regs *r)

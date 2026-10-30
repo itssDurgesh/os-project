@@ -1,0 +1,24 @@
+pwd
+ls /
+ls /bin
+cat /etc/hello.txt
+echo one two three
+ls /bin | wc
+cat /etc/hello.txt | wc
+echo piped text | cat | cat | wc
+mkdir /home/demo
+cd /home/demo
+pwd
+echo saved through redirect > note.txt
+cat note.txt
+echo second line >> note.txt
+wc < note.txt
+ls
+rm note.txt
+cd ..
+rmdir demo
+pwd
+ls /dev
+missingprogram
+cat /etc/missing.txt
+echo shell-commands-done

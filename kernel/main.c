@@ -1,66 +1,87 @@
-/* Milestone 0 kernel: prove it boots by printing to the screen and to serial. */
+/* Kernel entry point. Each step starts what the next one needs, in the order
+ * given by the PRD's Integration section. */
 
-#include <stdint.h>
+#include "console.h"
+#include "hal.h"
+#include "input.h"
+#include "kstring.h"
+#include "memory.h"
+#include "multiboot.h"
+#include "process.h"
+#include "storage.h"
+#include "syscall.h"
+#include "tests.h"
+#include "vfs.h"
 
-#define VGA_TEXT    ((volatile uint16_t *)0xB8000)
-#define VGA_COLUMNS 80
-#define VGA_WHITE   0x0F00
+#define COMMAND_LINE_LENGTH 128
 
-#define COM1 0x3F8
+static char command_line[COMMAND_LINE_LENGTH];
 
-static inline void outb(uint16_t port, uint8_t value)
+static void read_command_line(const struct multiboot_info *mbi)
 {
-    __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
+    if (mbi->flags & MULTIBOOT_FLAG_CMDLINE)
+        strlcpy(command_line, P2V(mbi->cmdline), COMMAND_LINE_LENGTH);
 }
 
-static inline uint8_t inb(uint16_t port)
+/* PID 1 starts as this kernel thread, which can sleep while the disk works. */
+static void kernel_thread(void *argument)
 {
-    uint8_t value;
-    __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port));
-    return value;
-}
+    (void)argument;
 
-static void serial_init(void)
-{
-    outb(COM1 + 1, 0x00);   /* no serial interrupts */
-    outb(COM1 + 3, 0x80);   /* unlock the baud rate divisor */
-    outb(COM1 + 0, 0x03);   /* divisor 3 = 38400 baud */
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x03);   /* 8 data bits, no parity, 1 stop bit */
-    outb(COM1 + 2, 0xC7);   /* enable and clear the FIFOs */
-}
+    /* Step 6: Device drivers */
+    keyboard_init();
+    ata_init();
 
-static void serial_write(const char *text)
-{
-    for (; *text != '\0'; text++) {
-        while ((inb(COM1 + 5) & 0x20) == 0)
-            ;               /* wait until the transmitter is ready */
-        outb(COM1, (uint8_t)*text);
+    /* Step 7: Storage */
+    storage_init();
+
+    /* Step 8: File Handling */
+    vfs_init();
+    vfs_set_root(ext2_mount(PARTITION_DATA));
+    vfs_mount("/dev", devfs_mount());
+
+    if (test_mode_active()) {
+        tests_run();
+        return;
     }
+
+    kprintf("OS Project: kernel running.\n");
+    kprintf("%u MB RAM, %u MB free.\n", frames_total() / 256, frames_free() / 256);
+    kprintf("BOOT-OK\n");
+
+    /* Step 10: System calls, then the first user program in ring 3. */
+    syscall_init();
+    process_init();
+    process_start_first("/sbin/init");
 }
 
-static void vga_write(int row, const char *text)
+void kmain(uint32_t magic, uint32_t mbi_physical)
 {
-    volatile uint16_t *cell = VGA_TEXT + row * VGA_COLUMNS;
+    const struct multiboot_info *mbi = P2V(mbi_physical);
 
-    for (; *text != '\0'; text++)
-        *cell++ = VGA_WHITE | (uint8_t)*text;
-}
-
-static void vga_clear(void)
-{
-    for (int i = 0; i < VGA_COLUMNS * 25; i++)
-        VGA_TEXT[i] = VGA_WHITE | ' ';
-}
-
-void kmain(void)
-{
+    /* Step 1: Boot */
     serial_init();
-    vga_clear();
+    vga_init();
+    if (magic != MULTIBOOT_MAGIC)
+        panic("not started by a Multiboot bootloader");
+    read_command_line(mbi);
+    tests_init(command_line);
+    gdt_init();
 
-    vga_write(0, "OS Project: hello");
-    vga_write(2, "Milestone 0 passed. Close this window, then send boot.log to Integration.");
+    /* Step 2: HAL (interrupts stay off) */
+    idt_init();
+    pic_init();
+    pit_init(TIMER_HZ);
 
-    serial_write("OS Project: hello\r\n");
-    serial_write("BOOT-OK\r\n");
+    /* Step 3: Memory core */
+    frame_init(mbi);
+    paging_init();
+    kmalloc_init();
+
+    /* Step 4: Sync primitives need no start-up work. */
+
+    /* Step 5: Process core, then this code becomes the idle process. */
+    sched_init();
+    thread_create("kernel", DEFAULT_PRIORITY, kernel_thread, NULL);
+    sched_idle_loop();
 }

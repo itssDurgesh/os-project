@@ -1,8 +1,8 @@
-/* whoami: prints the current user's name. */
+// whoami: prints the current user's name.
 
 #include "libc.h"
 
-int main(void)
+int main()
 {
     struct user user;
 

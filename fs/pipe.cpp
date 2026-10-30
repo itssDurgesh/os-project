@@ -1,7 +1,6 @@
-/* Pipes: a one-way byte stream through a kernel buffer. Interrupt handlers never
- * touch a pipe and the kernel isn't preempted, so no lock is needed. */
-
-#include <stddef.h>
+// Pipes: a one-way stream of bytes through a buffer in the kernel. Interrupt
+// handlers never touch a pipe and the kernel is not preempted, so no lock is
+// needed here.
 
 #include "errno.h"
 #include "memory.h"
@@ -10,30 +9,57 @@
 
 #define PIPE_SIZE 4096
 
-struct pipe {
+class Pipe {
+public:
     uint8_t data[PIPE_SIZE];
-    uint32_t head;              /* next byte to read */
-    uint32_t count;             /* bytes waiting */
-    uint32_t readers;
-    uint32_t writers;
-    struct WaitQueue can_read;
-    struct WaitQueue can_write;
+    uint32_t head = 0;          // next byte to read
+    uint32_t count = 0;         // bytes waiting to be read
+    uint32_t readers = 1;
+    uint32_t writers = 1;
+    WaitQueue can_read;
+    WaitQueue can_write;
+
+    void delete_if_unused();
 };
 
-static int pipe_read(struct file *file, void *buffer, uint32_t count)
+void Pipe::delete_if_unused()
 {
-    struct pipe *pipe = file->pipe;
+    if (readers == 0 && writers == 0)
+        delete this;
+}
+
+// The read end of a pipe.
+class PipeReader : public File {
+public:
+    Pipe *pipe = nullptr;
+
+    int read(void *buffer, uint32_t count) override;
+    void close() override;
+};
+
+// The write end of a pipe.
+class PipeWriter : public File {
+public:
+    Pipe *pipe = nullptr;
+
+    int write(const void *buffer, uint32_t count) override;
+    void close() override;
+};
+
+int PipeReader::read(void *buffer, uint32_t count)
+{
     uint8_t *output = (uint8_t *)buffer;
     uint32_t done = 0;
 
     while (pipe->count == 0) {
         if (pipe->writers == 0)
-            return 0;           /* end of file: every write end has closed */
+            return 0;           // end of file: all the write ends have closed
         pipe->can_read.sleep();
     }
 
     while (done < count && pipe->count > 0) {
-        output[done++] = pipe->data[pipe->head];
+        output[done] = pipe->data[pipe->head];
+        done++;
         pipe->head = (pipe->head + 1) % PIPE_SIZE;
         pipe->count--;
     }
@@ -42,15 +68,24 @@ static int pipe_read(struct file *file, void *buffer, uint32_t count)
     return (int)done;
 }
 
-static int pipe_write(struct file *file, const void *buffer, uint32_t count)
+void PipeReader::close()
 {
-    struct pipe *pipe = file->pipe;
+    pipe->readers--;
+    pipe->can_write.wake_all();
+    pipe->delete_if_unused();
+}
+
+int PipeWriter::write(const void *buffer, uint32_t count)
+{
     const uint8_t *input = (const uint8_t *)buffer;
     uint32_t done = 0;
 
     while (done < count) {
-        if (pipe->readers == 0)
-            return (done > 0) ? (int)done : -EPIPE;
+        if (pipe->readers == 0) {
+            if (done > 0)
+                return (int)done;
+            return -EPIPE;
+        }
 
         if (pipe->count == PIPE_SIZE) {
             pipe->can_read.wake_all();
@@ -58,7 +93,8 @@ static int pipe_write(struct file *file, const void *buffer, uint32_t count)
             continue;
         }
 
-        pipe->data[(pipe->head + pipe->count) % PIPE_SIZE] = input[done++];
+        pipe->data[(pipe->head + pipe->count) % PIPE_SIZE] = input[done];
+        done++;
         pipe->count++;
     }
 
@@ -66,63 +102,24 @@ static int pipe_write(struct file *file, const void *buffer, uint32_t count)
     return (int)done;
 }
 
-static void free_if_unused(struct pipe *pipe)
+void PipeWriter::close()
 {
-    if (pipe->readers == 0 && pipe->writers == 0)
-        kfree(pipe);
-}
-
-static void pipe_close_read(struct file *file)
-{
-    struct pipe *pipe = file->pipe;
-
-    pipe->readers--;
-    pipe->can_write.wake_all();
-    free_if_unused(pipe);
-}
-
-static void pipe_close_write(struct file *file)
-{
-    struct pipe *pipe = file->pipe;
-
     pipe->writers--;
     pipe->can_read.wake_all();
-    free_if_unused(pipe);
+    pipe->delete_if_unused();
 }
 
-static const struct file_ops pipe_read_ops = {
-    .read = pipe_read,
-    .close = pipe_close_read,
-};
-
-static const struct file_ops pipe_write_ops = {
-    .write = pipe_write,
-    .close = pipe_close_write,
-};
-
-int pipe_create(struct file **read_end, struct file **write_end)
+int pipe_create(File **read_end, File **write_end)
 {
-    struct pipe *pipe = (struct pipe *)kmalloc_zeroed(sizeof(*pipe));
-    struct file *reader = file_alloc();
-    struct file *writer = file_alloc();
-
-    if (pipe == NULL || reader == NULL || writer == NULL) {
-        kfree(pipe);
-        kfree(reader);
-        kfree(writer);
-        return -ENOMEM;
-    }
-
-    pipe->readers = 1;
-    pipe->writers = 1;
+    Pipe *pipe = new Pipe();
+    PipeReader *reader = new PipeReader();
+    PipeWriter *writer = new PipeWriter();
 
     reader->pipe = pipe;
     reader->flags = O_RDONLY;
-    reader->ops = &pipe_read_ops;
 
     writer->pipe = pipe;
     writer->flags = O_WRONLY;
-    writer->ops = &pipe_write_ops;
 
     *read_end = reader;
     *write_end = writer;

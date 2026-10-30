@@ -1,4 +1,4 @@
-/* chmod: changes a file's permissions. The mode is octal, such as 644. */
+// chmod: changes a file's permissions. The mode is octal, such as 644.
 
 #include "libc.h"
 

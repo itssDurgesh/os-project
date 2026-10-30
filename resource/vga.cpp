@@ -1,4 +1,4 @@
-/* VGA text mode driver: 80x25 characters at physical address 0xB8000. */
+// VGA text mode driver: 80x25 characters at physical address 0xB8000.
 
 #include "console.h"
 #include "hal.h"
@@ -19,7 +19,7 @@ static volatile uint16_t *const vga_text = (volatile uint16_t *)phys_to_virt(0xB
 static int column;
 static int row;
 
-static void update_cursor(void)
+static void update_cursor()
 {
     uint16_t position = row * VGA_COLUMNS + column;
 
@@ -29,7 +29,7 @@ static void update_cursor(void)
     outb(VGA_CRTC_DATA, position & 0xFF);
 }
 
-static void scroll(void)
+static void scroll()
 {
     for (int i = 0; i < VGA_COLUMNS * (VGA_ROWS - 1); i++)
         vga_text[i] = vga_text[i + VGA_COLUMNS];
@@ -40,7 +40,7 @@ static void scroll(void)
     row = VGA_ROWS - 1;
 }
 
-void vga_init(void)
+void vga_init()
 {
     for (int i = 0; i < VGA_COLUMNS * VGA_ROWS; i++)
         vga_text[i] = VGA_WHITE | ' ';

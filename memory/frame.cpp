@@ -1,8 +1,7 @@
-/* Physical frame allocator: a bitmap with one bit per 4 KB frame, plus a frame
- * table that records how many users each frame has.
- *
- * Only kernel code allocates memory, never an interrupt handler, and the kernel
- * isn't preempted, so these functions don't need a lock. */
+// Physical frame allocator: a bitmap with one bit per 4 KB frame, plus a frame
+// table that records how many users each frame has.
+// Only kernel code allocates memory, never an interrupt handler, and the kernel
+// isn't preempted, so these functions don't need a lock.
 
 #include <stdbool.h>
 
@@ -12,20 +11,20 @@
 #include "multiboot.h"
 
 #define BITS_PER_WORD 32
-#define MAX_PHYS_MEMORY 0x30000000u     /* 768 MB fits in the kernel's 1 GB */
+#define MAX_PHYS_MEMORY 0x30000000u  // 768 MB fits in the kernel's 1 GB
 
-struct frame {
+struct Frame {
     uint16_t refcount;
-    uint16_t block_pages;               /* size of an alloc_frames() block */
+    uint16_t block_pages;  // size of an alloc_frames() block
 };
 
 extern "C" char _kernel_end[];
 
-static uint32_t *bitmap;                /* bit set = frame in use */
-static struct frame *frame_table;
+static uint32_t *bitmap;  // bit set = frame in use
+static Frame *frame_table;
 static uint32_t frame_count;
 static uint32_t free_count;
-static uint32_t search_start;           /* no free frame exists below this */
+static uint32_t search_start;  // no free frame exists below this
 
 static bool frame_in_use(uint32_t index)
 {
@@ -95,14 +94,14 @@ void frame_init(const struct multiboot_info *mbi)
 
     frame_count = find_memory_top(mbi) / PAGE_SIZE;
 
-    /* The bitmap and frame table go straight after the kernel image. */
+    // The bitmap and frame table go straight after the kernel image.
     uint32_t bitmap_bytes = (frame_count / BITS_PER_WORD + 1) * sizeof(uint32_t);
-    uint32_t table_bytes = frame_count * sizeof(struct frame);
+    uint32_t table_bytes = frame_count * sizeof(Frame);
     uint32_t next_free = round_up_to_page(virt_to_phys(_kernel_end));
 
     bitmap = (uint32_t *)phys_to_virt(next_free);
     next_free = round_up_to_page(next_free + bitmap_bytes);
-    frame_table = (frame *)phys_to_virt(next_free);
+    frame_table = (Frame *)phys_to_virt(next_free);
     next_free = round_up_to_page(next_free + table_bytes);
 
     memset(bitmap, 0xFF, bitmap_bytes);
@@ -112,8 +111,8 @@ void frame_init(const struct multiboot_info *mbi)
     search_start = frame_count;
     free_available_regions(mbi);
 
-    /* Low memory holds the BIOS data and VGA, and then come the kernel and the
-     * tables above. None of it may ever be handed out. */
+    // Low memory holds the BIOS data and VGA, and then come the kernel and the
+    // tables above. None of it may ever be handed out.
     for (uint32_t index = 0; index < next_free / PAGE_SIZE; index++) {
         if (!frame_in_use(index))
             mark_used(index);
@@ -121,7 +120,7 @@ void frame_init(const struct multiboot_info *mbi)
     search_start = next_free / PAGE_SIZE;
 }
 
-uint32_t alloc_frame(void)
+uint32_t alloc_frame()
 {
     for (uint32_t index = search_start; index < frame_count; index++) {
         if (!frame_in_use(index)) {
@@ -187,12 +186,12 @@ uint32_t frame_user_count(uint32_t address)
     return frame_table[address / PAGE_SIZE].refcount;
 }
 
-uint32_t total_frames(void)
+uint32_t total_frames()
 {
     return frame_count;
 }
 
-uint32_t free_frame_count(void)
+uint32_t free_frame_count()
 {
     return free_count;
 }

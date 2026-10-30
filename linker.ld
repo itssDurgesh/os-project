@@ -30,6 +30,9 @@ SECTIONS
 
     .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VMA)
     {
+        start_of_constructors = .;
+        KEEP(*(.init_array*))
+        end_of_constructors = .;
         *(.data*)
     }
 

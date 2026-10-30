@@ -1,4 +1,4 @@
-/* Memory system calls. brk() and sbrk() move the top of a program's heap. */
+// Memory system calls. brk() and sbrk() move the top of a program's heap.
 
 #include "errno.h"
 #include "kstring.h"
@@ -6,7 +6,7 @@
 #include "process.h"
 #include "syscall.h"
 
-#define USER_STACK_RESERVE (1024 * 1024)    /* keep the heap below the stack */
+#define USER_STACK_RESERVE (1024 * 1024)  // keep the heap below the stack
 
 static int set_heap_end(uint32_t new_end)
 {
@@ -41,13 +41,13 @@ static int set_heap_end(uint32_t new_end)
     return 0;
 }
 
-int sys_brk(struct Registers *r)
+int sys_brk(Registers *r)
 {
     return set_heap_end(r->ebx);
 }
 
-/* Returns the old end of the heap, which is the start of the new space. */
-int sys_sbrk(struct Registers *r)
+// Returns the old end of the heap, which is the start of the new space.
+int sys_sbrk(Registers *r)
 {
     uint32_t old_end = current_process->heap_end;
     int status = set_heap_end(old_end + (int)r->ebx);

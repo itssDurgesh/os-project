@@ -1,9 +1,8 @@
-/* devfs: the /dev folder. Its files are devices, held in memory, not on disk.
- *   /dev/console  line-at-a-time keyboard input and screen output
- *   /dev/input    raw keyboard events, one character at a time
- *   /dev/null     discards writes and always reads as empty */
-
-#include <stddef.h>
+// devfs: the /dev folder. These files are devices, so they live in memory and
+// not on the disk.
+//   /dev/console  keyboard input one line at a time, and output to the screen
+//   /dev/input    raw keyboard input, one character at a time
+//   /dev/null     throws away writes and is always empty when read
 
 #include "console.h"
 #include "errno.h"
@@ -13,12 +12,13 @@
 
 #define KEY_BACKSPACE '\b'
 #define KEY_DELETE    0x7F
-#define KEY_END_OF_FILE 0x04    /* Ctrl+D */
+#define KEY_END_OF_FILE 0x04    // Ctrl+D
 
 #define DEVICE_MODE 0666
 #define DEVFS_MODE  0755
 
 #define LINE_LENGTH 256
+#define DEVICE_COUNT 3
 
 static char line[LINE_LENGTH];
 static uint32_t line_length;
@@ -30,8 +30,8 @@ void console_set_echo(bool enabled)
     echo_enabled = enabled;
 }
 
-/* Reads a whole line with echo and backspace. Returns false on Ctrl+D. */
-static bool read_line(void)
+// Reads a whole line, with echo and backspace. Returns false on Ctrl+D.
+static bool read_line()
 {
     line_length = 0;
     line_position = 0;
@@ -55,7 +55,8 @@ static bool read_line(void)
             c = '\n';
 
         if (c == '\n' || line_length < LINE_LENGTH - 1) {
-            line[line_length++] = c;
+            line[line_length] = c;
+            line_length++;
             if (echo_enabled)
                 kprintf("%c", c);
         }
@@ -65,41 +66,52 @@ static bool read_line(void)
     }
 }
 
-static int console_read(struct inode *inode, void *buffer, uint32_t offset, uint32_t count)
+class ConsoleDevice : public Inode {
+public:
+    int read(void *buffer, uint32_t offset, uint32_t count) override;
+    int write(const void *buffer, uint32_t offset, uint32_t count) override;
+    int truncate() override;
+};
+
+int ConsoleDevice::read(void *buffer, uint32_t, uint32_t count)
 {
     char *output = (char *)buffer;
     uint32_t done = 0;
 
-    (void)inode;
-    (void)offset;
-
     if (line_position == line_length && !read_line())
         return 0;
 
-    while (done < count && line_position < line_length)
-        output[done++] = line[line_position++];
-
+    while (done < count && line_position < line_length) {
+        output[done] = line[line_position];
+        done++;
+        line_position++;
+    }
     return (int)done;
 }
 
-static int console_write(struct inode *inode, const void *buffer, uint32_t offset,
-                         uint32_t count)
+int ConsoleDevice::write(const void *buffer, uint32_t, uint32_t count)
 {
     const char *input = (const char *)buffer;
-
-    (void)inode;
-    (void)offset;
 
     for (uint32_t i = 0; i < count; i++)
         kprintf("%c", input[i]);
     return (int)count;
 }
 
-static int raw_input_read(struct inode *inode, void *buffer, uint32_t offset, uint32_t count)
+int ConsoleDevice::truncate()
 {
-    (void)inode;
-    (void)offset;
+    return 0;
+}
 
+class RawInputDevice : public Inode {
+public:
+    int read(void *buffer, uint32_t offset, uint32_t count) override;
+    int write(const void *buffer, uint32_t offset, uint32_t count) override;
+    int truncate() override;
+};
+
+int RawInputDevice::read(void *buffer, uint32_t, uint32_t count)
+{
     if (count == 0)
         return 0;
 
@@ -107,63 +119,56 @@ static int raw_input_read(struct inode *inode, void *buffer, uint32_t offset, ui
     return 1;
 }
 
-static int null_read(struct inode *inode, void *buffer, uint32_t offset, uint32_t count)
+int RawInputDevice::write(const void *, uint32_t, uint32_t count)
 {
-    (void)inode;
-    (void)buffer;
-    (void)offset;
-    (void)count;
-    return 0;
-}
-
-static int null_write(struct inode *inode, const void *buffer, uint32_t offset, uint32_t count)
-{
-    (void)inode;
-    (void)buffer;
-    (void)offset;
     return (int)count;
 }
 
-static int device_truncate(struct inode *inode)
+int RawInputDevice::truncate()
 {
-    (void)inode;
     return 0;
 }
 
-static const struct inode_ops console_ops = {
-    .read = console_read,
-    .write = console_write,
-    .truncate = device_truncate,
+class NullDevice : public Inode {
+public:
+    int read(void *buffer, uint32_t offset, uint32_t count) override;
+    int write(const void *buffer, uint32_t offset, uint32_t count) override;
+    int truncate() override;
 };
 
-static const struct inode_ops input_ops = {
-    .read = raw_input_read,
-    .write = null_write,
-    .truncate = device_truncate,
-};
+int NullDevice::read(void *, uint32_t, uint32_t)
+{
+    return 0;
+}
 
-static const struct inode_ops null_ops = {
-    .read = null_read,
-    .write = null_write,
-    .truncate = device_truncate,
-};
+int NullDevice::write(const void *, uint32_t, uint32_t count)
+{
+    return (int)count;
+}
 
-#define DEVICE_COUNT 3
+int NullDevice::truncate()
+{
+    return 0;
+}
 
-static struct {
+struct DeviceEntry {
     const char *name;
-    struct inode inode;
-} devices[DEVICE_COUNT] = {
-    { "console", { .number = 1, .ops = &console_ops } },
-    { "input",   { .number = 2, .ops = &input_ops } },
-    { "null",    { .number = 3, .ops = &null_ops } },
+    Inode *inode;
 };
 
-static int devfs_lookup(struct inode *directory, const char *name, struct inode **result)
+static DeviceEntry devices[DEVICE_COUNT];
+
+class DevFolder : public Inode {
+public:
+    int lookup(const char *name, Inode **result) override;
+    int readdir(uint32_t *offset, struct dirent *entry) override;
+};
+
+int DevFolder::lookup(const char *name, Inode **result)
 {
     if (strcmp(name, ".") == 0) {
-        hold_inode(directory);
-        *result = directory;
+        hold_inode(this);
+        *result = this;
         return 0;
     }
 
@@ -175,49 +180,48 @@ static int devfs_lookup(struct inode *directory, const char *name, struct inode 
 
     for (int i = 0; i < DEVICE_COUNT; i++) {
         if (strcmp(name, devices[i].name) == 0) {
-            hold_inode(&devices[i].inode);
-            *result = &devices[i].inode;
+            hold_inode(devices[i].inode);
+            *result = devices[i].inode;
             return 0;
         }
     }
     return -ENOENT;
 }
 
-static int devfs_readdir(struct inode *directory, uint32_t *offset, struct dirent *entry)
+int DevFolder::readdir(uint32_t *offset, struct dirent *entry)
 {
-    (void)directory;
-
     if (*offset >= DEVICE_COUNT)
         return 0;
 
-    entry->inode = devices[*offset].inode.number;
+    entry->inode = devices[*offset].inode->number;
     entry->type = INODE_DEVICE;
     copy_string(entry->name, devices[*offset].name, sizeof(entry->name));
-    (*offset)++;
+    *offset = *offset + 1;
     return 1;
 }
 
-static const struct inode_ops devfs_ops = {
-    .lookup = devfs_lookup,
-    .readdir = devfs_readdir,
-};
-
-static struct inode devfs_root = {
-    .number = 100,
-    .type = INODE_DIRECTORY,
-    .mode = DEVFS_MODE,
-    .links = 2,
-    .refcount = 1,
-    .ops = &devfs_ops,
-};
-
-struct inode *devfs_mount(void)
+static void add_device(int index, const char *name, Inode *inode)
 {
-    for (int i = 0; i < DEVICE_COUNT; i++) {
-        devices[i].inode.type = INODE_DEVICE;
-        devices[i].inode.mode = DEVICE_MODE;
-        devices[i].inode.links = 1;
-        devices[i].inode.refcount = 1;
-    }
-    return &devfs_root;
+    inode->number = index + 1;
+    inode->type = INODE_DEVICE;
+    inode->mode = DEVICE_MODE;
+    inode->links = 1;
+
+    devices[index].name = name;
+    devices[index].inode = inode;
+}
+
+Inode *devfs_mount()
+{
+    DevFolder *folder = new DevFolder();
+
+    add_device(0, "console", new ConsoleDevice());
+    add_device(1, "input", new RawInputDevice());
+    add_device(2, "null", new NullDevice());
+
+    folder->number = 100;
+    folder->type = INODE_DIRECTORY;
+    folder->mode = DEVFS_MODE;
+    folder->links = 2;
+    return folder;
 }

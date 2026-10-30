@@ -1,4 +1,4 @@
-/* Memory and string helpers. GCC may also call the mem* functions by itself. */
+// Memory and string helpers. GCC may also call the mem* functions by itself.
 
 #include "kstring.h"
 

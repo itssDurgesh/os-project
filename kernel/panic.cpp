@@ -1,13 +1,13 @@
-/* Kernel panic: print what went wrong and stop, because carrying on could
- * corrupt data. */
+// Kernel panic: print what went wrong and stop, because carrying on could
+// corrupt data.
 
 #include "console.h"
 #include "hal.h"
 #include "tests.h"
 
-static void halt_forever(void) __attribute__((noreturn));
+static void halt_forever() __attribute__((noreturn));
 
-static void halt_forever(void)
+static void halt_forever()
 {
     if (test_mode_active())
         qemu_exit(TEST_EXIT_PANIC);
@@ -33,7 +33,7 @@ void panic(const char *format, ...)
     halt_forever();
 }
 
-void panic_with_registers(const struct Registers *r, const char *reason)
+void panic_with_registers(const Registers *r, const char *reason)
 {
     disable_interrupts();
     kprintf("\nKERNEL PANIC: %s\n", reason);

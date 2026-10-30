@@ -1,4 +1,4 @@
-/* rmdir: deletes empty folders. */
+// rmdir: deletes empty folders.
 
 #include "libc.h"
 

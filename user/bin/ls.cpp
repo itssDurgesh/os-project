@@ -1,4 +1,4 @@
-/* ls: lists a folder. With -l it also shows permissions, owner and size. */
+// ls: lists a folder. With -l it also shows permissions, owner and size.
 
 #include "libc.h"
 

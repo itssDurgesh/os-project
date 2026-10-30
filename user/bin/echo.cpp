@@ -1,4 +1,4 @@
-/* echo: prints its arguments. */
+// echo: prints its arguments.
 
 #include "libc.h"
 

@@ -1,9 +1,9 @@
-/* Acceptance test: creates, writes, reads and deletes files, including one big
- * enough to need indirect blocks. */
+// Acceptance test: creates, writes, reads and deletes files, including one big
+// enough to need indirect blocks.
 
 #include "libc.h"
 
-#define BIG_SIZE 300000         /* well past the 48 KB of direct blocks */
+#define BIG_SIZE 300000  // well past the 48 KB of direct blocks
 #define CHUNK 1000
 
 #define CHECK(condition)                                            \
@@ -22,7 +22,7 @@ static void fill(uint32_t position)
         buffer[i] = (char)((position + i) * 31);
 }
 
-int main(void)
+int main()
 {
     struct stat info;
     struct dirent entry;
@@ -32,7 +32,7 @@ int main(void)
     CHECK(mkdir("/home/test", 0755) == 0);
     CHECK(mkdir("/home/test", 0755) == -EEXIST);
 
-    /* A small file, read back through a second descriptor. */
+    // A small file, read back through a second descriptor.
     fd = open("/home/test/small.txt", O_WRONLY | O_CREAT, 0644);
     CHECK(fd >= 0);
     CHECK(write(fd, "hello", 5) == 5);
@@ -42,17 +42,17 @@ int main(void)
     CHECK(fd >= 0);
     CHECK(read(fd, buffer, CHUNK) == 5);
     CHECK(memcmp(buffer, "hello", 5) == 0);
-    CHECK(read(fd, buffer, CHUNK) == 0);        /* end of file */
+    CHECK(read(fd, buffer, CHUNK) == 0);  // end of file
     close(fd);
 
-    /* Appending keeps what's already there. */
+    // Appending keeps what's already there.
     fd = open("/home/test/small.txt", O_WRONLY | O_APPEND);
     CHECK(write(fd, " world", 6) == 6);
     close(fd);
     CHECK(stat("/home/test/small.txt", &info) == 0);
     CHECK(info.size == 11);
 
-    /* A big file, with every byte checked. */
+    // A big file, with every byte checked.
     fd = open("/home/test/big.bin", O_WRONLY | O_CREAT, 0644);
     CHECK(fd >= 0);
     for (uint32_t position = 0; position < BIG_SIZE; position += CHUNK) {
@@ -74,7 +74,7 @@ int main(void)
         CHECK(memcmp(buffer, expected, CHUNK) == 0);
     }
 
-    /* Seeking back reads the same data again. */
+    // Seeking back reads the same data again.
     CHECK(seek(fd, 1000, SEEK_SET) == 1000);
     fill(1000);
     {
@@ -86,30 +86,30 @@ int main(void)
     }
     close(fd);
 
-    /* After fork, parent and child share one file position. */
+    // After fork, parent and child share one file position.
     fd = open("/home/test/small.txt", O_RDONLY);
     if (fork() == 0) {
         read(fd, buffer, 6);
         exit(0);
     }
-    wait(NULL);
+    wait(nullptr);
     CHECK(read(fd, buffer, 5) == 5);
     CHECK(memcmp(buffer, "world", 5) == 0);
     close(fd);
 
-    /* Directory listing. */
+    // Directory listing.
     fd = open("/home/test", O_RDONLY);
     while (readdir(fd, &entry) > 0)
         found++;
     close(fd);
-    CHECK(found == 4);                          /* ., .., small.txt, big.bin */
+    CHECK(found == 4);  // ., .., small.txt, big.bin
 
-    /* Errors, and a folder that isn't empty. */
+    // Errors, and a folder that isn't empty.
     CHECK(open("/home/test/missing", O_RDONLY) == -ENOENT);
     CHECK(rmdir("/home/test") == -ENOTEMPTY);
     CHECK(unlink("/home/test") == -EISDIR);
 
-    /* A deleted file stays readable until the last user closes it. */
+    // A deleted file stays readable until the last user closes it.
     fd = open("/home/test/small.txt", O_RDONLY);
     CHECK(unlink("/home/test/small.txt") == 0);
     CHECK(stat("/home/test/small.txt", &info) == -ENOENT);
@@ -121,7 +121,7 @@ int main(void)
     CHECK(rmdir("/home/test") == 0);
     CHECK(stat("/home/test", &info) == -ENOENT);
 
-    /* Leave a file behind, so the test can check it survives a reboot. */
+    // Leave a file behind, so the test can check it survives a reboot.
     fd = open("/home/persist.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     CHECK(write(fd, "saved to disk\n", 14) == 14);
     close(fd);

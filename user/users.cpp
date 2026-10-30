@@ -1,5 +1,5 @@
-/* User accounts, from /etc/passwd (name:x:uid:gid:home:shell) and /etc/shadow
- * (name:salt:hash). */
+// User accounts, from /etc/passwd (name:x:uid:gid:home:shell) and /etc/shadow
+// (name:salt:hash).
 
 #include "libc.h"
 
@@ -27,7 +27,7 @@ static bool load_file(const char *path)
     return true;
 }
 
-/* Cuts one line into fields at each colon, and returns the start of the next. */
+// Cuts one line into fields at each colon, and returns the start of the next.
 static char *split_line(char *line, char *fields[], int count)
 {
     char *cursor = line;
@@ -61,8 +61,8 @@ static bool find_user(const char *name, int uid, struct user *result)
 
         line = split_line(line, fields, LINE_FIELDS);
 
-        if ((name != NULL && strcmp(fields[0], name) == 0) ||
-            (name == NULL && atoi(fields[2]) == uid)) {
+        if ((name != nullptr && strcmp(fields[0], name) == 0) ||
+            (name == nullptr && atoi(fields[2]) == uid)) {
             strcpy(result->name, fields[0]);
             result->uid = atoi(fields[2]);
             result->gid = atoi(fields[3]);
@@ -81,7 +81,7 @@ bool user_by_name(const char *name, struct user *result)
 
 bool user_by_uid(int uid, struct user *result)
 {
-    return find_user(NULL, uid, result);
+    return find_user(nullptr, uid, result);
 }
 
 static int hex_value(char c)

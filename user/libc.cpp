@@ -1,10 +1,10 @@
-/* The small C library for user programs. */
+// The small C library for user programs.
 
 #include "libc.h"
 
 #define PRINT_BUFFER 512
 
-/* System calls: number in EAX, arguments in EBX, ECX and EDX. */
+// System calls: number in EAX, arguments in EBX, ECX and EDX.
 
 static inline int syscall3(int number, uint32_t a, uint32_t b, uint32_t c)
 {
@@ -17,10 +17,10 @@ static inline int syscall3(int number, uint32_t a, uint32_t b, uint32_t c)
     return result;
 }
 
-int fork(void) { return syscall3(SYS_FORK, 0, 0, 0); }
-int getpid(void) { return syscall3(SYS_GETPID, 0, 0, 0); }
-int getuid(void) { return syscall3(SYS_GETUID, 0, 0, 0); }
-int getgid(void) { return syscall3(SYS_GETGID, 0, 0, 0); }
+int fork() { return syscall3(SYS_FORK, 0, 0, 0); }
+int getpid() { return syscall3(SYS_GETPID, 0, 0, 0); }
+int getuid() { return syscall3(SYS_GETUID, 0, 0, 0); }
+int getgid() { return syscall3(SYS_GETGID, 0, 0, 0); }
 int wait(int *status) { return syscall3(SYS_WAIT, (uint32_t)status, 0, 0); }
 int sleep(uint32_t milliseconds) { return syscall3(SYS_SLEEP, milliseconds, 0, 0); }
 int close(int fd) { return syscall3(SYS_CLOSE, fd, 0, 0); }
@@ -103,7 +103,7 @@ int getcwd(char *buffer, uint32_t size)
     return syscall3(SYS_GETCWD, (uint32_t)buffer, size, 0);
 }
 
-/* Strings and memory */
+// Strings and memory
 
 size_t strlen(const char *text)
 {
@@ -147,7 +147,7 @@ char *strchr(const char *text, int c)
         if (*text == (char)c)
             return (char *)text;
     }
-    return NULL;
+    return nullptr;
 }
 
 void *memset(void *dest, int value, size_t count)
@@ -190,7 +190,7 @@ int atoi(const char *text)
     return value;
 }
 
-/* Output */
+// Output
 
 struct output {
     int fd;
@@ -323,7 +323,7 @@ const char *error_text(int error)
     }
 }
 
-/* Heap: a simple first-fit list of blocks, grown with sbrk(). */
+// Heap: a simple first-fit list of blocks, grown with sbrk().
 
 #define HEAP_GROW_SIZE 16384
 #define ALIGNMENT 8
@@ -352,13 +352,13 @@ static struct block *grow_heap(size_t size)
 
     block = (struct block *)sbrk((int)total);
     if ((int)block < 0 && (int)block > -4096)
-        return NULL;
+        return nullptr;
 
     block->size = total - sizeof(struct block);
     block->free = true;
-    block->next = NULL;
+    block->next = nullptr;
 
-    if (heap_last != NULL)
+    if (heap_last != nullptr)
         heap_last->next = block;
     else
         heap_first = block;
@@ -372,18 +372,18 @@ void *malloc(size_t size)
 
     size = round_up(size);
 
-    for (block = heap_first; block != NULL; block = block->next) {
+    for (block = heap_first; block != nullptr; block = block->next) {
         if (block->free && block->size >= size)
             break;
     }
 
-    if (block == NULL) {
+    if (block == nullptr) {
         block = grow_heap(size);
-        if (block == NULL)
-            return NULL;
+        if (block == nullptr)
+            return nullptr;
     }
 
-    /* Split off what's left, if it's big enough to be useful. */
+    // Split off what's left, if it's big enough to be useful.
     if (block->size >= size + sizeof(struct block) + ALIGNMENT) {
         struct block *rest = (struct block *)((char *)(block + 1) + size);
 
@@ -404,14 +404,14 @@ void free(void *pointer)
 {
     struct block *block;
 
-    if (pointer == NULL)
+    if (pointer == nullptr)
         return;
 
     block = (struct block *)pointer - 1;
     block->free = true;
 
-    /* Join neighbouring free blocks, so memory doesn't break into small pieces. */
-    for (block = heap_first; block != NULL && block->next != NULL;) {
+    // Join neighbouring free blocks, so memory doesn't break into small pieces.
+    for (block = heap_first; block != nullptr && block->next != nullptr;) {
         struct block *next = block->next;
         char *end = (char *)(block + 1) + block->size;
 

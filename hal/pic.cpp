@@ -1,6 +1,6 @@
-/* The two 8259 Programmable Interrupt Controllers.
- * By default IRQ 0 arrives on vector 8, which is the CPU's double fault, so the
- * IRQs are moved to vectors 0x20-0x2F before interrupts are turned on. */
+// The two 8259 Programmable Interrupt Controllers.
+// By default IRQ 0 arrives on vector 8, which is the CPU's double fault, so the
+// IRQs are moved to vectors 0x20-0x2F before interrupts are turned on.
 
 #include "hal.h"
 
@@ -10,24 +10,24 @@
 #define PIC2_DATA    0xA1
 
 #define PIC_EOI      0x20
-#define ICW1_INIT    0x11       /* start setup, ICW4 will follow */
+#define ICW1_INIT    0x11  // start setup, ICW4 will follow
 #define ICW4_8086    0x01
 
 #define PIC2_VECTOR_BASE (VECTOR_IRQ_BASE + 8)
 #define CASCADE_IRQ      2
 
-void pic_init(void)
+void pic_init()
 {
     outb(PIC1_COMMAND, ICW1_INIT);
     outb(PIC2_COMMAND, ICW1_INIT);
     outb(PIC1_DATA, VECTOR_IRQ_BASE);
     outb(PIC2_DATA, PIC2_VECTOR_BASE);
-    outb(PIC1_DATA, 1 << CASCADE_IRQ);  /* the second PIC is on IRQ 2 */
+    outb(PIC1_DATA, 1 << CASCADE_IRQ);  // the second PIC is on IRQ 2
     outb(PIC2_DATA, CASCADE_IRQ);
     outb(PIC1_DATA, ICW4_8086);
     outb(PIC2_DATA, ICW4_8086);
 
-    /* Every IRQ stays masked until its driver asks for it. */
+    // Every IRQ stays masked until its driver asks for it.
     outb(PIC1_DATA, (uint8_t)~(1 << CASCADE_IRQ));
     outb(PIC2_DATA, 0xFF);
 }

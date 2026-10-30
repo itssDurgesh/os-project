@@ -1,5 +1,5 @@
-/* Boot-time self tests, one per milestone feature. Each prints TEST-PASS or
- * TEST-FAIL, and tests/run.sh checks for it in the serial log. */
+// Boot-time self tests, one per milestone feature. Each prints TEST-PASS or
+// TEST-FAIL, and tests/run.sh checks for it in the serial log.
 
 #include <stddef.h>
 
@@ -46,13 +46,13 @@ void tests_init(const char *command_line)
     }
 }
 
-bool test_mode_active(void)
+bool test_mode_active()
 {
     return test_name[0] != '\0';
 }
 
-/* M1: the timer really is interrupting us. */
-static void test_ticks(void)
+// M1: the timer really is interrupting us.
+static void test_ticks()
 {
     uint32_t start = get_ticks();
 
@@ -64,10 +64,10 @@ static void test_ticks(void)
     kprintf("TEST-PASS\n");
 }
 
-/* M1: a CPU exception reaches the panic handler. */
-static void test_panic(void)
+// M1: a CPU exception reaches the panic handler.
+static void test_panic()
 {
-    /* Both are volatile, or GCC works out 1 / x without a divide instruction. */
+    // Both are volatile, or GCC works out 1 / x without a divide instruction.
     volatile int number = 100;
     volatile int zero = 0;
     volatile int result = number / zero;
@@ -76,8 +76,8 @@ static void test_panic(void)
     kprintf("TEST-FAIL: survived a division by zero\n");
 }
 
-/* M2: frames, kmalloc and paging all work, and nothing leaks. */
-static void test_memory(void)
+// M2: frames, kmalloc and paging all work, and nothing leaks.
+static void test_memory()
 {
     uint32_t free_before = free_frame_count();
     uint32_t first = alloc_frame();
@@ -93,7 +93,7 @@ static void test_memory(void)
     add_frame_user(first);
     CHECK(frame_user_count(first) == 2);
     free_frame(first);
-    CHECK(free_frame_count() == free_before - 2);    /* still has one user */
+    CHECK(free_frame_count() == free_before - 2);  // still has one user
     free_frame(first);
     free_frame(second);
     CHECK(free_frame_count() == free_before);
@@ -104,12 +104,12 @@ static void test_memory(void)
     free_frames(block);
     CHECK(free_frame_count() == free_before);
 
-    /* Different sizes must not overlap: fill each one, then check them all. */
+    // Different sizes must not overlap: fill each one, then check them all.
     for (int i = 0; i < 64; i++) {
         size_t size = 8 + i * 300;
 
         pointers[i] = kmalloc(size);
-        CHECK(pointers[i] != NULL);
+        CHECK(pointers[i] != nullptr);
         memset(pointers[i], i + 1, size);
     }
     for (int i = 0; i < 64; i++) {
@@ -121,7 +121,7 @@ static void test_memory(void)
     }
     CHECK(free_frame_count() == free_before);
 
-    /* A mapped page must reach the same frame through both addresses. */
+    // A mapped page must reach the same frame through both addresses.
     uint32_t test_virt = 0x40000000;
     uint32_t frame = alloc_frame();
 
@@ -135,8 +135,8 @@ static void test_memory(void)
     kprintf("TEST-PASS\n");
 }
 
-/* M2: touching unmapped memory is caught, not silently ignored. */
-static void test_pagefault(void)
+// M2: touching unmapped memory is caught, not silently ignored.
+static void test_pagefault()
 {
     volatile uint32_t *unmapped = (volatile uint32_t *)0x50000000;
     volatile uint32_t value = *unmapped;
@@ -145,7 +145,7 @@ static void test_pagefault(void)
     kprintf("TEST-FAIL: read from unmapped memory worked\n");
 }
 
-/* M3: two equal threads take turns under the timer. */
+// M3: two equal threads take turns under the timer.
 #define TURN_LOG_SIZE 64
 
 static volatile char turn_log[TURN_LOG_SIZE];
@@ -168,10 +168,10 @@ static void turn_thread(void *argument)
     }
 }
 
-static void test_sched(void)
+static void test_sched()
 {
-    struct Process *a = thread_create("turn-a", 1, turn_thread, (void *)'A');
-    struct Process *b = thread_create("turn-b", 1, turn_thread, (void *)'B');
+    Process *a = thread_create("turn-a", 1, turn_thread, (void *)'A');
+    Process *b = thread_create("turn-b", 1, turn_thread, (void *)'B');
     char log[TURN_LOG_SIZE];
 
     thread_join(a);
@@ -186,7 +186,7 @@ static void test_sched(void)
     kprintf("TEST-PASS\n");
 }
 
-/* M3: aging lets a low-priority thread run beside a busy high-priority one. */
+// M3: aging lets a low-priority thread run beside a busy high-priority one.
 static volatile bool low_priority_ran;
 static volatile bool stop_busy_thread;
 
@@ -203,13 +203,13 @@ static void low_priority_thread(void *argument)
     low_priority_ran = true;
 }
 
-static void test_aging(void)
+static void test_aging()
 {
-    struct Process *busy = thread_create("busy", 1, busy_thread, NULL);
-    struct Process *low = thread_create("low", 3, low_priority_thread, NULL);
+    Process *busy = thread_create("busy", 1, busy_thread, nullptr);
+    Process *low = thread_create("low", 3, low_priority_thread, nullptr);
     uint32_t start = get_ticks();
 
-    /* Sleeping keeps this thread out of the way for 3 seconds at most. */
+    // Sleeping keeps this thread out of the way for 3 seconds at most.
     while (!low_priority_ran && get_ticks() - start < 300)
         thread_sleep(10);
 
@@ -222,11 +222,11 @@ static void test_aging(void)
     kprintf("TEST-PASS\n");
 }
 
-/* M3: locks really do protect shared data, and sleepers get woken. */
+// M3: locks really do protect shared data, and sleepers get woken.
 #define WORKERS 4
 #define ROUNDS 2000
 
-static struct Mutex counter_lock;
+static Mutex counter_lock;
 static volatile int shared_counter;
 
 static void counter_thread(void *argument)
@@ -238,14 +238,14 @@ static void counter_thread(void *argument)
 
         int value = shared_counter;
 
-        give_up_cpu_if_needed();         /* a bad lock would lose updates here */
+        give_up_cpu_if_needed();  // a bad lock would lose updates here
         shared_counter = value + 1;
         counter_lock.unlock();
     }
 }
 
-static struct Semaphore items;
-static struct Semaphore slots;
+static Semaphore items;
+static Semaphore slots;
 static volatile int items_received;
 
 static void producer_thread(void *argument)
@@ -267,8 +267,8 @@ static void consumer_thread(void *argument)
     }
 }
 
-static struct Mutex ready_lock;
-static struct CondVar ready_signal;
+static Mutex ready_lock;
+static CondVar ready_signal;
 static volatile bool ready_flag;
 static volatile bool waiter_finished;
 
@@ -282,19 +282,19 @@ static void condvar_thread(void *argument)
     waiter_finished = true;
 }
 
-static void test_sync(void)
+static void test_sync()
 {
-    struct Process *workers[WORKERS];
-    struct Process *producer;
-    struct Process *consumer;
-    struct Process *waiter;
-    struct Spinlock spin;
+    Process *workers[WORKERS];
+    Process *producer;
+    Process *consumer;
+    Process *waiter;
+    Spinlock spin;
 
     spin.lock();
     spin.unlock();
 
     for (int i = 0; i < WORKERS; i++)
-        workers[i] = thread_create("counter", 1, counter_thread, NULL);
+        workers[i] = thread_create("counter", 1, counter_thread, nullptr);
     for (int i = 0; i < WORKERS; i++)
         thread_join(workers[i]);
     kprintf("counter: %d\n", shared_counter);
@@ -302,16 +302,16 @@ static void test_sync(void)
 
     items.set_count(0);
     slots.set_count(4);
-    producer = thread_create("producer", 1, producer_thread, NULL);
-    consumer = thread_create("consumer", 1, consumer_thread, NULL);
+    producer = thread_create("producer", 1, producer_thread, nullptr);
+    consumer = thread_create("consumer", 1, consumer_thread, nullptr);
     thread_join(producer);
     thread_join(consumer);
     kprintf("items received: %d\n", items_received);
     CHECK(items_received == 50);
 
-    waiter = thread_create("waiter", 1, condvar_thread, NULL);
+    waiter = thread_create("waiter", 1, condvar_thread, nullptr);
     thread_sleep(5);
-    CHECK(!waiter_finished);        /* it must still be waiting */
+    CHECK(!waiter_finished);  // it must still be waiting
     ready_lock.lock();
     ready_flag = true;
     ready_signal.signal();
@@ -322,11 +322,11 @@ static void test_sync(void)
     kprintf("TEST-PASS\n");
 }
 
-/* M4: partition table, ATA, buffer cache and ext2 reading all work together. */
-static void test_disk(void)
+// M4: partition table, ATA, buffer cache and ext2 reading all work together.
+static void test_disk()
 {
     static char text[64];
-    struct inode *inode;
+    Inode *inode;
     uint32_t reads_before;
     uint8_t *block;
     int length;
@@ -335,30 +335,30 @@ static void test_disk(void)
     CHECK(partition_blocks(PARTITION_SWAP) == 32 * 256);
     CHECK(partition_blocks(PARTITION_DATA) == 64 * 256);
 
-    CHECK(vfs_lookup(NULL, "/etc/hello.txt", &inode) == 0);
-    length = inode->ops->read(inode, text, 0, sizeof(text) - 1);
+    CHECK(vfs_lookup(nullptr, "/etc/hello.txt", &inode) == 0);
+    length = inode->read(text, 0, sizeof(text) - 1);
     CHECK(length > 0);
     text[length] = '\0';
     kprintf("hello.txt: %s", text);
     CHECK(strcmp(text, "Hello from the OS Project disk.\n") == 0);
 
-    /* The second read of the same data must not touch the disk. */
+    // The second read of the same data must not touch the disk.
     reads_before = block_disk_reads();
-    CHECK(inode->ops->read(inode, text, 0, sizeof(text) - 1) == length);
+    CHECK(inode->read(text, 0, sizeof(text) - 1) == length);
     kprintf("disk reads on the second read: %u\n",
             block_disk_reads() - reads_before);
     CHECK(block_disk_reads() == reads_before);
     release_inode(inode);
 
-    /* 5 MB reaches direct, indirect and double-indirect blocks. */
-    CHECK(vfs_lookup(NULL, "/etc/big.bin", &inode) == 0);
+    // 5 MB reaches direct, indirect and double-indirect blocks.
+    CHECK(vfs_lookup(nullptr, "/etc/big.bin", &inode) == 0);
     kprintf("big.bin: %u bytes\n", inode->size);
     CHECK(inode->size == 5 * 1024 * 1024);
 
     block = (uint8_t *)kmalloc(BLOCK_SIZE);
-    CHECK(block != NULL);
+    CHECK(block != nullptr);
     for (uint32_t offset = 0; offset < inode->size; offset += BLOCK_SIZE) {
-        CHECK(inode->ops->read(inode, block, offset, BLOCK_SIZE) == BLOCK_SIZE);
+        CHECK(inode->read(block, offset, BLOCK_SIZE) == BLOCK_SIZE);
         for (uint32_t i = 0; i < BLOCK_SIZE; i++) {
             uint32_t position = offset + i;
             uint8_t expected = position ^ (position >> 8) ^ (position >> 16);
@@ -369,11 +369,11 @@ static void test_disk(void)
     kfree(block);
     release_inode(inode);
 
-    CHECK(vfs_lookup(NULL, "/etc/missing.txt", &inode) == -ENOENT);
+    CHECK(vfs_lookup(nullptr, "/etc/missing.txt", &inode) == -ENOENT);
     kprintf("TEST-PASS\n");
 }
 
-void tests_run(void)
+void tests_run()
 {
     static const struct {
         const char *name;

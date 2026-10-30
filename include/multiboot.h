@@ -1,4 +1,4 @@
-/* The parts of the Multiboot 1 information that GRUB passes to the kernel. */
+// The parts of the Multiboot 1 information that GRUB passes to the kernel.
 
 #ifndef MULTIBOOT_H
 #define MULTIBOOT_H
@@ -23,7 +23,7 @@ struct multiboot_info {
 } __attribute__((packed));
 
 struct multiboot_mmap_entry {
-    uint32_t size;              /* size of this entry, not counting this field */
+    uint32_t size;  // size of this entry, not counting this field
     uint64_t addr;
     uint64_t length;
     uint32_t type;

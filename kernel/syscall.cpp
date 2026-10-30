@@ -1,5 +1,5 @@
-/* System Call Interface. Programs put a number in EAX and run `int 0x80`. This
- * table sends each number to its handler, and the result goes back in EAX. */
+// System Call Interface. Programs put a number in EAX and run `int 0x80`. This
+// table sends each number to its handler, and the result goes back in EAX.
 
 #include <stddef.h>
 
@@ -10,20 +10,20 @@
 
 static syscall_handler_t syscall_table[SYSCALL_COUNT];
 
-static void syscall_interrupt(struct Registers *r)
+static void syscall_interrupt(Registers *r)
 {
     uint32_t number = r->eax;
 
-    /* Long system calls must not block the timer or the disk. */
+    // Long system calls must not block the timer or the disk.
     enable_interrupts();
 
-    if (number < SYSCALL_COUNT && syscall_table[number] != NULL)
+    if (number < SYSCALL_COUNT && syscall_table[number] != nullptr)
         r->eax = (uint32_t)syscall_table[number](r);
     else
         r->eax = (uint32_t)-ENOSYS;
 }
 
-void syscall_init(void)
+void syscall_init()
 {
     syscall_table[SYS_FORK] = sys_fork;
     syscall_table[SYS_EXEC] = sys_exec;

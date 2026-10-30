@@ -1,4 +1,4 @@
-/* SHA-256, used to check passwords without ever storing them. */
+// SHA-256, used to check passwords without ever storing them.
 
 #include "libc.h"
 
@@ -89,7 +89,7 @@ void sha256(const void *data, size_t length, uint8_t digest[32])
         remaining -= BLOCK_BYTES;
     }
 
-    /* The end of the message: a 1 bit, zeros, then the length in bits. */
+    // The end of the message: a 1 bit, zeros, then the length in bits.
     memset(last, 0, sizeof(last));
     memcpy(last, input, remaining);
     last[remaining] = 0x80;

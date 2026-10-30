@@ -1,4 +1,4 @@
-/* The shell. Runs commands, with pipes (|) and redirection (<, >, >>). */
+// The shell. Runs commands, with pipes (|) and redirection (<, >, >>).
 
 #include "libc.h"
 
@@ -29,7 +29,7 @@ static char *next_word(char **cursor)
         (*cursor)++;
 
     if (**cursor == '\0')
-        return NULL;
+        return nullptr;
 
     word = *cursor;
     while (**cursor != '\0' && !is_space(**cursor))
@@ -40,8 +40,8 @@ static char *next_word(char **cursor)
     return word;
 }
 
-/* Splits the line into commands. Returns how many, or -1 on a syntax error. */
-static int parse_line(void)
+// Splits the line into commands. Returns how many, or -1 on a syntax error.
+static int parse_line()
 {
     char *cursor = line;
     char *word;
@@ -50,7 +50,7 @@ static int parse_line(void)
 
     memset(command, 0, sizeof(*command));
 
-    while ((word = next_word(&cursor)) != NULL) {
+    while ((word = next_word(&cursor)) != nullptr) {
         if (strcmp(word, "|") == 0) {
             if (command->argc == 0 || ++count == MAX_COMMANDS)
                 return -1;
@@ -58,12 +58,12 @@ static int parse_line(void)
             memset(command, 0, sizeof(*command));
         } else if (strcmp(word, "<") == 0) {
             command->input_file = next_word(&cursor);
-            if (command->input_file == NULL)
+            if (command->input_file == nullptr)
                 return -1;
         } else if (strcmp(word, ">") == 0 || strcmp(word, ">>") == 0) {
             command->append = strcmp(word, ">>") == 0;
             command->output_file = next_word(&cursor);
-            if (command->output_file == NULL)
+            if (command->output_file == nullptr)
                 return -1;
         } else if (command->argc < MAX_ARGUMENTS) {
             command->argv[command->argc++] = word;
@@ -77,7 +77,7 @@ static int parse_line(void)
 
 static void apply_redirection(const struct command *command)
 {
-    if (command->input_file != NULL) {
+    if (command->input_file != nullptr) {
         int fd = open(command->input_file, O_RDONLY);
 
         if (fd < 0) {
@@ -88,7 +88,7 @@ static void apply_redirection(const struct command *command)
         close(fd);
     }
 
-    if (command->output_file != NULL) {
+    if (command->output_file != nullptr) {
         int flags = O_WRONLY | O_CREAT | (command->append ? O_APPEND : O_TRUNC);
         int fd = open(command->output_file, flags, 0644);
 
@@ -107,7 +107,7 @@ static void run_program(const struct command *command)
     char path[MAX_PATH];
     int status;
 
-    if (strchr(name, '/') != NULL) {
+    if (strchr(name, '/') != nullptr) {
         strcpy(path, name);
     } else {
         strcpy(path, "/bin/");
@@ -160,7 +160,7 @@ static void run_pipeline(int count)
     }
 
     for (int i = 0; i < count; i++)
-        wait(NULL);
+        wait(nullptr);
 }
 
 static bool run_builtin(const struct command *command)
@@ -181,7 +181,7 @@ static bool run_builtin(const struct command *command)
     return false;
 }
 
-int main(void)
+int main()
 {
     struct user user;
     bool known = user_by_uid(getuid(), &user);

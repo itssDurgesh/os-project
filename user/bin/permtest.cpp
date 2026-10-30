@@ -1,4 +1,4 @@
-/* Acceptance test: a normal user really is limited by file permissions. */
+// Acceptance test: a normal user really is limited by file permissions.
 
 #include "libc.h"
 
@@ -13,7 +13,7 @@
         }                                                           \
     } while (0)
 
-static void as_student(void)
+static void as_student()
 {
     struct stat info;
     char buffer[16];
@@ -23,12 +23,12 @@ static void as_student(void)
     CHECK(setuid(STUDENT_UID) == 0);
     CHECK(getuid() == STUDENT_UID);
 
-    /* Once a normal user, a process can't get root back. */
+    // Once a normal user, a process can't get root back.
     CHECK(setuid(0) == -EPERM);
     CHECK(setgid(0) == -EPERM);
     CHECK(set_echo(false) == -EPERM);
 
-    /* Files the PRD's rwx bits should protect. */
+    // Files the PRD's rwx bits should protect.
     CHECK(open("/etc/shadow", O_RDONLY) == -EACCES);
     CHECK(open("/etc/hello.txt", O_WRONLY) == -EACCES);
     CHECK(open("/etc/new.txt", O_WRONLY | O_CREAT, 0644) == -EACCES);
@@ -37,11 +37,11 @@ static void as_student(void)
     CHECK(mkdir("/etc/folder", 0755) == -EACCES);
     CHECK(chmod("/etc/hello.txt", 0777) == -EPERM);
 
-    /* A folder with no search permission hides what's inside it. */
+    // A folder with no search permission hides what's inside it.
     CHECK(open("/tmp/secret/note.txt", O_RDONLY) == -EACCES);
     CHECK(stat("/tmp/secret/note.txt", &info) == -EACCES);
 
-    /* Ordinary files stay readable, and their own home stays writable. */
+    // Ordinary files stay readable, and their own home stays writable.
     fd = open("/etc/hello.txt", O_RDONLY);
     CHECK(fd >= 0);
     CHECK(read(fd, buffer, sizeof(buffer)) == sizeof(buffer));
@@ -59,14 +59,14 @@ static void as_student(void)
     exit(0);
 }
 
-int main(void)
+int main()
 {
     int status;
     int fd;
 
     CHECK(getuid() == 0);
 
-    /* Root sets up a private folder. */
+    // Root sets up a private folder.
     CHECK(mkdir("/tmp/secret", 0700) == 0);
     fd = open("/tmp/secret/note.txt", O_WRONLY | O_CREAT, 0644);
     CHECK(fd >= 0);

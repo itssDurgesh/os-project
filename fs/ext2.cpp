@@ -1,8 +1,7 @@
-/* ext2 filesystem driver. It follows the real on-disk format, so Linux tools
- * can build the disk image and e2fsck can check our writes.
- *
- * One Mutex covers the whole filesystem. Each operation in ext2_ops takes it on
- * entry, and the static helpers assume it's already held. */
+// ext2 filesystem driver. It follows the real on-disk format, so Linux tools
+// can build the disk image and e2fsck can check our writes.
+// One Mutex covers the whole filesystem. Each operation in ext2_ops takes it on
+// entry, and the static helpers assume it's already held.
 
 #include <stddef.h>
 
@@ -86,10 +85,10 @@ struct ext2_inode {
     uint32_t delete_time;
     uint16_t gid;
     uint16_t links;
-    uint32_t sectors;           /* in 512-byte units */
+    uint32_t sectors;  // in 512-byte units
     uint32_t flags;
     uint32_t os_specific1;
-    uint32_t blocks[15];        /* the last slot is triple-indirect, unused here */
+    uint32_t blocks[15];  // the last slot is triple-indirect, unused here
     uint32_t generation;
     uint32_t file_acl;
     uint32_t directory_acl;
@@ -108,6 +107,26 @@ struct ext2_dirent {
     char name[];
 } __attribute__((packed));
 
+// An ext2 file or folder. `disk` is its copy of the inode from the disk.
+class Ext2Inode final : public Inode {
+public:
+    struct ext2_inode disk;
+    Ext2Inode *next_cached = nullptr;
+
+    int read(void *buffer, uint32_t offset, uint32_t count) override;
+    int write(const void *buffer, uint32_t offset, uint32_t count) override;
+    int truncate() override;
+    int lookup(const char *name, Inode **result) override;
+    int create(const char *name, uint32_t mode, uint32_t uid, uint32_t gid,
+               Inode **result) override;
+    int mkdir(const char *name, uint32_t mode, uint32_t uid, uint32_t gid) override;
+    int unlink(const char *name) override;
+    int rmdir(const char *name) override;
+    int readdir(uint32_t *offset, struct dirent *result) override;
+    int sync() override;
+    void release() override;
+};
+
 struct ext2_fs {
     int partition;
     struct ext2_superblock super;
@@ -115,31 +134,30 @@ struct ext2_fs {
     uint32_t group_count;
     uint32_t group_table_blocks;
     uint32_t inode_size;
-    struct inode *cached_inodes;
-    struct Mutex lock;
+    Ext2Inode *cached_inodes;
+    Mutex lock;
 };
 
-/* One filesystem is mounted, so the driver keeps it here. */
+// One filesystem is mounted, so the driver keeps it here.
 static struct ext2_fs fs;
-extern const struct inode_ops ext2_ops;
 
-/* The hardware clock isn't read yet, so times are seconds since boot. A nonzero
- * value keeps e2fsck happy about deleted inodes. */
-static uint32_t now(void)
+// The hardware clock isn't read yet, so times are seconds since boot. A nonzero
+// value keeps e2fsck happy about deleted inodes.
+static uint32_t now()
 {
     return get_ticks() / TIMER_HZ + 1;
 }
 
-static struct ext2_inode *disk_inode(struct inode *inode)
+static struct ext2_inode *disk_inode(Ext2Inode *inode)
 {
-    return (struct ext2_inode *)inode->private_data;
+    return &inode->disk;
 }
 
-/* Superblock and group descriptors */
+// Superblock and group descriptors
 
-static int save_superblock(void)
+static int save_superblock()
 {
-    struct buffer *buffer = block_get(fs.partition, 0);
+    Buffer *buffer = block_get(fs.partition, 0);
     int result;
 
     fs.super.write_time = now();
@@ -153,7 +171,7 @@ static int save_group(uint32_t group)
 {
     uint32_t per_block = BLOCK_SIZE / sizeof(struct ext2_group);
     uint32_t table_block = group / per_block;
-    struct buffer *buffer = block_get(fs.partition, 1 + table_block);
+    Buffer *buffer = block_get(fs.partition, 1 + table_block);
     int result;
 
     memcpy(buffer->data + (group % per_block) * sizeof(struct ext2_group),
@@ -163,7 +181,7 @@ static int save_group(uint32_t group)
     return result;
 }
 
-/* Bitmaps */
+// Bitmaps
 
 static int find_clear_bit(const uint8_t *bitmap, uint32_t bits)
 {
@@ -180,7 +198,7 @@ static int alloc_block(uint32_t *result)
         if (fs.groups[group].free_blocks == 0)
             continue;
 
-        struct buffer *bitmap = block_get(fs.partition, fs.groups[group].block_bitmap);
+        Buffer *bitmap = block_get(fs.partition, fs.groups[group].block_bitmap);
         int bit = find_clear_bit(bitmap->data, fs.super.blocks_per_group);
 
         if (bit < 0) {
@@ -199,8 +217,8 @@ static int alloc_block(uint32_t *result)
 
         *result = group * fs.super.blocks_per_group + bit + fs.super.first_data_block;
 
-        /* New blocks must start zeroed, or old data could leak into a file. */
-        struct buffer *block = block_get(fs.partition, *result);
+        // New blocks must start zeroed, or old data could leak into a file.
+        Buffer *block = block_get(fs.partition, *result);
 
         memset(block->data, 0, BLOCK_SIZE);
         block_write(block);
@@ -215,7 +233,7 @@ static void free_block(uint32_t block)
     uint32_t index = block - fs.super.first_data_block;
     uint32_t group = index / fs.super.blocks_per_group;
     uint32_t bit = index % fs.super.blocks_per_group;
-    struct buffer *bitmap = block_get(fs.partition, fs.groups[group].block_bitmap);
+    Buffer *bitmap = block_get(fs.partition, fs.groups[group].block_bitmap);
 
     bitmap->data[bit / 8] &= ~(1 << (bit % 8));
     block_write(bitmap);
@@ -233,7 +251,7 @@ static int alloc_inode_number(bool directory, uint32_t *result)
         if (fs.groups[group].free_inodes == 0)
             continue;
 
-        struct buffer *bitmap = block_get(fs.partition, fs.groups[group].inode_bitmap);
+        Buffer *bitmap = block_get(fs.partition, fs.groups[group].inode_bitmap);
         int bit = find_clear_bit(bitmap->data, fs.super.inodes_per_group);
 
         if (bit < 0) {
@@ -262,7 +280,7 @@ static void free_inode_number(uint32_t number, bool directory)
 {
     uint32_t group = (number - 1) / fs.super.inodes_per_group;
     uint32_t bit = (number - 1) % fs.super.inodes_per_group;
-    struct buffer *bitmap = block_get(fs.partition, fs.groups[group].inode_bitmap);
+    Buffer *bitmap = block_get(fs.partition, fs.groups[group].inode_bitmap);
 
     bitmap->data[bit / 8] &= ~(1 << (bit % 8));
     block_write(bitmap);
@@ -276,7 +294,7 @@ static void free_inode_number(uint32_t number, bool directory)
     save_superblock();
 }
 
-/* Inodes */
+// Inodes
 
 static void inode_location(uint32_t number, uint32_t *block, uint32_t *offset)
 {
@@ -290,7 +308,7 @@ static void inode_location(uint32_t number, uint32_t *block, uint32_t *offset)
 static void load_disk_inode(uint32_t number, struct ext2_inode *result)
 {
     uint32_t block, offset;
-    struct buffer *buffer;
+    Buffer *buffer;
 
     inode_location(number, &block, &offset);
     buffer = block_get(fs.partition, block);
@@ -298,11 +316,11 @@ static void load_disk_inode(uint32_t number, struct ext2_inode *result)
     block_put(buffer);
 }
 
-static int save_inode(struct inode *inode)
+static int save_inode(Ext2Inode *inode)
 {
     struct ext2_inode *disk = disk_inode(inode);
     uint32_t block, offset;
-    struct buffer *buffer;
+    Buffer *buffer;
     int result;
 
     disk->mode = (disk->mode & MODE_TYPE_MASK) | inode->mode;
@@ -319,38 +337,33 @@ static int save_inode(struct inode *inode)
     return result;
 }
 
-static struct inode *wrap_inode(uint32_t number, const struct ext2_inode *source)
+static Ext2Inode *wrap_inode(uint32_t number, const struct ext2_inode *source)
 {
-    struct inode *inode = (struct inode *)kmalloc_zeroed(sizeof(*inode));
-    struct ext2_inode *copy = (ext2_inode *)kmalloc(sizeof(*copy));
+    Ext2Inode *inode = new Ext2Inode();
 
-    if (inode == NULL || copy == NULL)
-        panic("no memory for an inode");
-
-    memcpy(copy, source, sizeof(*copy));
+    memcpy(&inode->disk, source, sizeof(inode->disk));
     inode->number = number;
-    inode->type = ((copy->mode & MODE_TYPE_MASK) == MODE_DIRECTORY)
-                      ? INODE_DIRECTORY : INODE_FILE;
-    inode->mode = copy->mode & MODE_PERMISSION_MASK;
-    inode->uid = copy->uid;
-    inode->gid = copy->gid;
-    inode->links = copy->links;
-    inode->size = copy->size;
-    inode->refcount = 1;
-    inode->ops = &ext2_ops;
-    inode->private_data = copy;
+    if ((source->mode & MODE_TYPE_MASK) == MODE_DIRECTORY)
+        inode->type = INODE_DIRECTORY;
+    else
+        inode->type = INODE_FILE;
+    inode->mode = source->mode & MODE_PERMISSION_MASK;
+    inode->uid = source->uid;
+    inode->gid = source->gid;
+    inode->links = source->links;
+    inode->size = source->size;
 
-    inode->next = fs.cached_inodes;
+    inode->next_cached = fs.cached_inodes;
     fs.cached_inodes = inode;
     return inode;
 }
 
-/* Returns the one in-memory inode for this number, with a new reference. */
-static struct inode *get_inode(uint32_t number)
+// Returns the one in-memory inode for this number, with a new reference.
+static Ext2Inode *get_inode(uint32_t number)
 {
     struct ext2_inode disk;
 
-    for (struct inode *inode = fs.cached_inodes; inode != NULL; inode = inode->next) {
+    for (Ext2Inode *inode = fs.cached_inodes; inode != nullptr; inode = inode->next_cached) {
         if (inode->number == number) {
             inode->refcount++;
             return inode;
@@ -361,18 +374,18 @@ static struct inode *get_inode(uint32_t number)
     return wrap_inode(number, &disk);
 }
 
-/* File block mapping: 12 direct, then indirect, then double-indirect. */
+// File block mapping: 12 direct, then indirect, then double-indirect.
 
-static void charge_new_block(struct inode *inode)
+static void charge_new_block(Ext2Inode *inode)
 {
     disk_inode(inode)->sectors += SECTORS_PER_FS_BLOCK;
 }
 
-/* Finds slot `index` in a block of pointers, adding a block if asked to. */
-static int follow_pointer(struct inode *inode, uint32_t pointer_block, uint32_t index,
+// Finds slot `index` in a block of pointers, adding a block if asked to.
+static int follow_pointer(Ext2Inode *inode, uint32_t pointer_block, uint32_t index,
                           bool create, uint32_t *result)
 {
-    struct buffer *buffer = block_get(fs.partition, pointer_block);
+    Buffer *buffer = block_get(fs.partition, pointer_block);
     uint32_t *slots = (uint32_t *)buffer->data;
     int status = 0;
 
@@ -389,7 +402,7 @@ static int follow_pointer(struct inode *inode, uint32_t pointer_block, uint32_t 
     return status;
 }
 
-static int top_level_block(struct inode *inode, uint32_t slot, bool create,
+static int top_level_block(Ext2Inode *inode, uint32_t slot, bool create,
                            uint32_t *result)
 {
     uint32_t *blocks = disk_inode(inode)->blocks;
@@ -406,9 +419,9 @@ static int top_level_block(struct inode *inode, uint32_t slot, bool create,
     return 0;
 }
 
-/* Turns a block number inside a file into a block number on disk. A result of 0
- * means the file has no block there. */
-static int map_block(struct inode *inode, uint32_t file_block, bool create,
+// Turns a block number inside a file into a block number on disk. A result of 0
+// means the file has no block there.
+static int map_block(Ext2Inode *inode, uint32_t file_block, bool create,
                      uint32_t *result)
 {
     uint32_t pointer;
@@ -450,15 +463,15 @@ static int map_block(struct inode *inode, uint32_t file_block, bool create,
 
 static void free_pointer_block(uint32_t block, int depth)
 {
-    struct buffer *buffer;
+    Buffer *buffer;
     uint32_t *pointers;
 
     if (block == 0)
         return;
 
-    /* Too big for the 8 KB kernel stack, especially when this recurses. */
+    // Too big for the 8 KB kernel stack, especially when this recurses.
     pointers = (uint32_t *)kmalloc(BLOCK_SIZE);
-    if (pointers == NULL)
+    if (pointers == nullptr)
         panic("no memory to free a file");
 
     buffer = block_get(fs.partition, block);
@@ -478,8 +491,8 @@ static void free_pointer_block(uint32_t block, int depth)
     kfree(pointers);
 }
 
-/* Frees every block of a file. */
-static void free_all_blocks(struct inode *inode)
+// Frees every block of a file.
+static void free_all_blocks(Ext2Inode *inode)
 {
     struct ext2_inode *disk = disk_inode(inode);
 
@@ -495,9 +508,9 @@ static void free_all_blocks(struct inode *inode)
     inode->size = 0;
 }
 
-/* File contents */
+// File contents
 
-static int read_data(struct inode *inode, void *destination, uint32_t offset,
+static int read_data(Ext2Inode *inode, void *destination, uint32_t offset,
                      uint32_t count)
 {
     uint8_t *output = (uint8_t *)destination;
@@ -523,9 +536,9 @@ static int read_data(struct inode *inode, void *destination, uint32_t offset,
             return status;
 
         if (disk_block == 0) {
-            memset(output + done, 0, chunk);    /* a hole in the file */
+            memset(output + done, 0, chunk);  // a hole in the file
         } else {
-            struct buffer *buffer = block_get(fs.partition, disk_block);
+            Buffer *buffer = block_get(fs.partition, disk_block);
 
             memcpy(output + done, buffer->data + in_block, chunk);
             block_put(buffer);
@@ -535,7 +548,7 @@ static int read_data(struct inode *inode, void *destination, uint32_t offset,
     return (int)done;
 }
 
-static int write_data(struct inode *inode, const void *source, uint32_t offset,
+static int write_data(Ext2Inode *inode, const void *source, uint32_t offset,
                       uint32_t count)
 {
     const uint8_t *input = (const uint8_t *)source;
@@ -546,7 +559,7 @@ static int write_data(struct inode *inode, const void *source, uint32_t offset,
         uint32_t in_block = position % BLOCK_SIZE;
         uint32_t chunk = BLOCK_SIZE - in_block;
         uint32_t disk_block;
-        struct buffer *buffer;
+        Buffer *buffer;
         int status;
 
         if (chunk > count - done)
@@ -577,16 +590,16 @@ static int write_data(struct inode *inode, const void *source, uint32_t offset,
     return (int)done;
 }
 
-/* Directories */
+// Directories
 
 static uint32_t entry_space(uint32_t name_length)
 {
     return (DIRENT_HEADER_SIZE + name_length + 3) & ~3u;
 }
 
-/* Finds a name. On success returns its inode number and leaves the entry's byte
- * offset within the directory in *entry_offset. */
-static uint32_t find_entry(struct inode *directory, const char *name,
+// Finds a name. On success returns its inode number and leaves the entry's byte
+// offset within the directory in *entry_offset.
+static uint32_t find_entry(Ext2Inode *directory, const char *name,
                            uint32_t *entry_offset, uint32_t *previous_offset)
 {
     uint32_t name_length = strlen(name);
@@ -598,7 +611,7 @@ static uint32_t find_entry(struct inode *directory, const char *name,
         if (map_block(directory, file_offset / BLOCK_SIZE, false, &disk_block) != 0)
             return 0;
 
-        struct buffer *buffer = block_get(fs.partition, disk_block);
+        Buffer *buffer = block_get(fs.partition, disk_block);
         uint32_t in_block = 0;
         uint32_t previous = 0;
 
@@ -610,7 +623,7 @@ static uint32_t find_entry(struct inode *directory, const char *name,
                 uint32_t number = entry->inode;
 
                 *entry_offset = file_offset + in_block;
-                if (previous_offset != NULL)
+                if (previous_offset != nullptr)
                     *previous_offset = file_offset + previous;
                 block_put(buffer);
                 return number;
@@ -638,13 +651,13 @@ static int write_entry(struct ext2_dirent *entry, uint32_t inode_number,
     return 0;
 }
 
-static int add_entry(struct inode *directory, const char *name,
+static int add_entry(Ext2Inode *directory, const char *name,
                      uint32_t inode_number, uint8_t file_type)
 {
     uint32_t needed = entry_space(strlen(name));
     uint32_t file_offset = 0;
     uint32_t disk_block;
-    struct buffer *buffer;
+    Buffer *buffer;
     int status;
 
     if (strlen(name) > MAX_FILE_NAME)
@@ -684,7 +697,7 @@ static int add_entry(struct inode *directory, const char *name,
         file_offset += BLOCK_SIZE;
     }
 
-    /* Every block is full, so the directory grows by one. */
+    // Every block is full, so the directory grows by one.
     status = map_block(directory, file_offset / BLOCK_SIZE, true, &disk_block);
     if (status != 0)
         return status;
@@ -703,11 +716,11 @@ static int add_entry(struct inode *directory, const char *name,
     return status;
 }
 
-static int remove_entry(struct inode *directory, uint32_t entry_offset,
+static int remove_entry(Ext2Inode *directory, uint32_t entry_offset,
                         uint32_t previous_offset)
 {
     uint32_t disk_block;
-    struct buffer *buffer;
+    Buffer *buffer;
     int status = map_block(directory, entry_offset / BLOCK_SIZE, false, &disk_block);
     uint32_t in_block = entry_offset % BLOCK_SIZE;
     uint32_t previous = previous_offset % BLOCK_SIZE;
@@ -720,7 +733,7 @@ static int remove_entry(struct inode *directory, uint32_t entry_offset,
     struct ext2_dirent *entry = (ext2_dirent *)(buffer->data + in_block);
 
     if (in_block == 0) {
-        entry->inode = 0;       /* the first entry in a block just goes blank */
+        entry->inode = 0;  // the first entry in a block just goes blank
     } else {
         struct ext2_dirent *before = (ext2_dirent *)(buffer->data + previous);
 
@@ -732,7 +745,7 @@ static int remove_entry(struct inode *directory, uint32_t entry_offset,
     return status;
 }
 
-static bool directory_is_empty(struct inode *directory)
+static bool directory_is_empty(Ext2Inode *directory)
 {
     uint32_t file_offset = 0;
 
@@ -742,7 +755,7 @@ static bool directory_is_empty(struct inode *directory)
         if (map_block(directory, file_offset / BLOCK_SIZE, false, &disk_block) != 0)
             return false;
 
-        struct buffer *buffer = block_get(fs.partition, disk_block);
+        Buffer *buffer = block_get(fs.partition, disk_block);
         uint32_t in_block = 0;
 
         while (in_block < BLOCK_SIZE) {
@@ -764,7 +777,7 @@ static bool directory_is_empty(struct inode *directory)
     return true;
 }
 
-static struct inode *new_inode(uint32_t number, uint32_t mode, uint32_t uid,
+static Ext2Inode *new_inode(uint32_t number, uint32_t mode, uint32_t uid,
                                uint32_t gid, uint16_t links)
 {
     struct ext2_inode disk;
@@ -779,16 +792,17 @@ static struct inode *new_inode(uint32_t number, uint32_t mode, uint32_t uid,
     disk.change_time = time;
     disk.modify_time = time;
 
-    struct inode *inode = wrap_inode(number, &disk);
+    Ext2Inode *inode = wrap_inode(number, &disk);
 
     save_inode(inode);
     return inode;
 }
 
-/* Operations called through the VFS */
+// Operations called through the VFS
 
-static int ext2_read(struct inode *inode, void *buffer, uint32_t offset, uint32_t count)
+int Ext2Inode::read(void *buffer, uint32_t offset, uint32_t count)
 {
+    Ext2Inode *inode = this;
     int result;
 
     fs.lock.lock();
@@ -797,9 +811,9 @@ static int ext2_read(struct inode *inode, void *buffer, uint32_t offset, uint32_
     return result;
 }
 
-static int ext2_write(struct inode *inode, const void *buffer, uint32_t offset,
-                      uint32_t count)
+int Ext2Inode::write(const void *buffer, uint32_t offset, uint32_t count)
 {
+    Ext2Inode *inode = this;
     int result;
 
     fs.lock.lock();
@@ -808,8 +822,9 @@ static int ext2_write(struct inode *inode, const void *buffer, uint32_t offset,
     return result;
 }
 
-static int ext2_truncate(struct inode *inode)
+int Ext2Inode::truncate()
 {
+    Ext2Inode *inode = this;
     fs.lock.lock();
     free_all_blocks(inode);
     save_inode(inode);
@@ -817,13 +832,14 @@ static int ext2_truncate(struct inode *inode)
     return 0;
 }
 
-static int ext2_lookup(struct inode *directory, const char *name, struct inode **result)
+int Ext2Inode::lookup(const char *name, Inode **result)
 {
+    Ext2Inode *directory = this;
     uint32_t offset;
     uint32_t number;
 
     fs.lock.lock();
-    number = find_entry(directory, name, &offset, NULL);
+    number = find_entry(directory, name, &offset, nullptr);
     if (number != 0)
         *result = get_inode(number);
     fs.lock.unlock();
@@ -831,16 +847,16 @@ static int ext2_lookup(struct inode *directory, const char *name, struct inode *
     return (number != 0) ? 0 : -ENOENT;
 }
 
-static int ext2_create(struct inode *directory, const char *name, uint32_t mode,
-                       uint32_t uid, uint32_t gid, struct inode **result)
+int Ext2Inode::create(const char *name, uint32_t mode, uint32_t uid, uint32_t gid, Inode **result)
 {
+    Ext2Inode *directory = this;
     uint32_t offset;
     uint32_t number;
     int status;
 
     fs.lock.lock();
 
-    if (find_entry(directory, name, &offset, NULL) != 0) {
+    if (find_entry(directory, name, &offset, nullptr) != 0) {
         status = -EEXIST;
     } else {
         status = alloc_inode_number(false, &number);
@@ -854,19 +870,19 @@ static int ext2_create(struct inode *directory, const char *name, uint32_t mode,
     return status;
 }
 
-static int ext2_mkdir(struct inode *directory, const char *name, uint32_t mode,
-                      uint32_t uid, uint32_t gid)
+int Ext2Inode::mkdir(const char *name, uint32_t mode, uint32_t uid, uint32_t gid)
 {
+    Ext2Inode *directory = this;
     uint32_t offset;
     uint32_t number;
     uint32_t disk_block;
-    struct inode *created;
-    struct buffer *buffer;
+    Ext2Inode *created;
+    Buffer *buffer;
     int status;
 
     fs.lock.lock();
 
-    if (find_entry(directory, name, &offset, NULL) != 0) {
+    if (find_entry(directory, name, &offset, nullptr) != 0) {
         fs.lock.unlock();
         return -EEXIST;
     }
@@ -882,7 +898,7 @@ static int ext2_mkdir(struct inode *directory, const char *name, uint32_t mode,
     if (status != 0) {
         created->links = 0;
         fs.lock.unlock();
-        release_inode(created);     /* takes fs.lock itself, to delete the inode */
+        release_inode(created);  // takes fs.lock itself, to delete the inode
         return status;
     }
 
@@ -910,11 +926,12 @@ static int ext2_mkdir(struct inode *directory, const char *name, uint32_t mode,
     return status;
 }
 
-static int ext2_unlink(struct inode *directory, const char *name)
+int Ext2Inode::unlink(const char *name)
 {
+    Ext2Inode *directory = this;
     uint32_t offset, previous;
     uint32_t number;
-    struct inode *inode;
+    Ext2Inode *inode;
     int status;
 
     fs.lock.lock();
@@ -937,15 +954,16 @@ static int ext2_unlink(struct inode *directory, const char *name)
     save_inode(inode);
 
     fs.lock.unlock();
-    release_inode(inode);           /* the file really goes when the last user closes */
+    release_inode(inode);  // the file really goes when the last user closes
     return status;
 }
 
-static int ext2_rmdir(struct inode *directory, const char *name)
+int Ext2Inode::rmdir(const char *name)
 {
+    Ext2Inode *directory = this;
     uint32_t offset, previous;
     uint32_t number;
-    struct inode *inode;
+    Ext2Inode *inode;
     int status = 0;
 
     fs.lock.lock();
@@ -974,8 +992,9 @@ static int ext2_rmdir(struct inode *directory, const char *name)
     return status;
 }
 
-static int ext2_readdir(struct inode *directory, uint32_t *offset, struct dirent *result)
+int Ext2Inode::readdir(uint32_t *offset, struct dirent *result)
 {
+    Ext2Inode *directory = this;
     int status = 0;
 
     fs.lock.lock();
@@ -987,7 +1006,7 @@ static int ext2_readdir(struct inode *directory, uint32_t *offset, struct dirent
         if (status != 0)
             break;
 
-        struct buffer *buffer = block_get(fs.partition, disk_block);
+        Buffer *buffer = block_get(fs.partition, disk_block);
         struct ext2_dirent *entry = (ext2_dirent *)(buffer->data + *offset % BLOCK_SIZE);
         bool found = entry->inode != 0;
 
@@ -1012,8 +1031,9 @@ static int ext2_readdir(struct inode *directory, uint32_t *offset, struct dirent
     return status;
 }
 
-static int ext2_sync(struct inode *inode)
+int Ext2Inode::sync()
 {
+    Ext2Inode *inode = this;
     int result;
 
     fs.lock.lock();
@@ -1022,17 +1042,18 @@ static int ext2_sync(struct inode *inode)
     return result;
 }
 
-/* Runs when nobody holds the inode any more. A file with no names left is
- * finally deleted here. */
-static void ext2_release(struct inode *inode)
+// Runs when nobody holds the inode any more. A file with no names left is
+// finally deleted here.
+void Ext2Inode::release()
 {
-    struct inode **link;
+    Ext2Inode *inode = this;
+    Ext2Inode **link;
 
     fs.lock.lock();
 
-    for (link = &fs.cached_inodes; *link != NULL; link = &(*link)->next) {
+    for (link = &fs.cached_inodes; *link != nullptr; link = &(*link)->next_cached) {
         if (*link == inode) {
-            *link = inode->next;
+            *link = inode->next_cached;
             break;
         }
     }
@@ -1047,27 +1068,12 @@ static void ext2_release(struct inode *inode)
     }
 
     fs.lock.unlock();
-    kfree(inode->private_data);
-    kfree(inode);
+    delete inode;
 }
 
-const struct inode_ops ext2_ops = {
-    .read = ext2_read,
-    .write = ext2_write,
-    .truncate = ext2_truncate,
-    .lookup = ext2_lookup,
-    .create = ext2_create,
-    .mkdir = ext2_mkdir,
-    .unlink = ext2_unlink,
-    .rmdir = ext2_rmdir,
-    .readdir = ext2_readdir,
-    .sync = ext2_sync,
-    .release = ext2_release,
-};
-
-struct inode *ext2_mount(int partition)
+Inode *ext2_mount(int partition)
 {
-    struct buffer *buffer;
+    Buffer *buffer;
     uint32_t table_bytes;
 
     fs.partition = partition;
@@ -1087,7 +1093,7 @@ struct inode *ext2_mount(int partition)
 
     table_bytes = fs.group_count * sizeof(struct ext2_group);
     fs.groups = (ext2_group *)kmalloc(table_bytes);
-    if (fs.groups == NULL)
+    if (fs.groups == nullptr)
         panic("no memory for the ext2 group table");
 
     fs.group_table_blocks = round_up_to_page(table_bytes) / BLOCK_SIZE;

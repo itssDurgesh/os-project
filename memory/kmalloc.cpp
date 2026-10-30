@@ -1,20 +1,21 @@
-/* kmalloc: small requests use a slab cache of the next size up, and big ones get
- * whole frames. Slab objects never sit on a page boundary because of the slab
- * header, so kfree() can tell the two kinds apart from the address alone. */
+// kmalloc: small requests use a slab cache of the next size up, and big ones get
+// whole frames. Slab objects never sit on a page boundary because of the slab
+// header, so kfree() can tell the two kinds apart from the address alone.
 
+#include "console.h"
 #include "kstring.h"
 #include "memory.h"
 
 #define SIZE_CLASSES 8
-#define LARGEST_SLAB_OBJECT 2016    /* 4096 - 32 byte header, so one fits */
+#define LARGEST_SLAB_OBJECT 2016  // 4096 - 32 byte header, so one fits
 
 static const size_t class_sizes[SIZE_CLASSES] = {
     16, 32, 64, 128, 256, 512, 1024, LARGEST_SLAB_OBJECT
 };
 
-static struct SlabCache caches[SIZE_CLASSES];
+static SlabCache caches[SIZE_CLASSES];
 
-void kmalloc_init(void)
+void kmalloc_init()
 {
     for (int i = 0; i < SIZE_CLASSES; i++)
         slab_cache_init(&caches[i], class_sizes[i]);
@@ -29,25 +30,46 @@ void *kmalloc(size_t size)
 
     uint32_t frames = alloc_frames(round_up_to_page(size) / PAGE_SIZE);
 
-    return (frames == 0) ? NULL : phys_to_virt(frames);
+    return (frames == 0) ? nullptr : phys_to_virt(frames);
 }
 
 void *kmalloc_zeroed(size_t size)
 {
     void *pointer = kmalloc(size);
 
-    if (pointer != NULL)
+    if (pointer != nullptr)
         memset(pointer, 0, size);
     return pointer;
 }
 
 void kfree(void *pointer)
 {
-    if (pointer == NULL)
+    if (pointer == nullptr)
         return;
 
     if (((uint32_t)pointer & ~PAGE_MASK) == 0)
         free_frames(virt_to_phys(pointer));
     else
         slab_free(pointer);
+}
+
+// C++ new and delete. The kernel has no exceptions, so if memory runs out here
+// the only thing we can do is stop.
+void *operator new(size_t size)
+{
+    void *pointer = kmalloc(size);
+
+    if (pointer == nullptr)
+        panic("out of kernel memory");
+    return pointer;
+}
+
+void operator delete(void *pointer) noexcept
+{
+    kfree(pointer);
+}
+
+void operator delete(void *pointer, size_t) noexcept
+{
+    kfree(pointer);
 }

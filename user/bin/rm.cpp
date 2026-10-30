@@ -1,4 +1,4 @@
-/* rm: deletes files. */
+// rm: deletes files.
 
 #include "libc.h"
 

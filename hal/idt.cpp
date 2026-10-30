@@ -1,4 +1,4 @@
-/* Interrupt Descriptor Table and the common interrupt dispatcher. */
+// Interrupt Descriptor Table and the common interrupt dispatcher.
 
 #include "console.h"
 #include "hal.h"
@@ -6,8 +6,8 @@
 
 #define IDT_ENTRIES 256
 
-#define GATE_KERNEL 0x8E        /* interrupt gate, ring 0 only */
-#define GATE_USER   0xEE        /* interrupt gate, callable from ring 3 */
+#define GATE_KERNEL 0x8E  // interrupt gate, ring 0 only
+#define GATE_USER   0xEE  // interrupt gate, callable from ring 3
 
 #define FIRST_IRQ_VECTOR VECTOR_IRQ_BASE
 #define LAST_IRQ_VECTOR  (VECTOR_IRQ_BASE + 15)
@@ -39,7 +39,7 @@ static void idt_set(int vector, uint32_t base, uint8_t flags)
     idt[vector].base_high = (base >> 16) & 0xFFFF;
 }
 
-void idt_init(void)
+void idt_init()
 {
     struct idt_pointer pointer = {
         .limit = sizeof(idt) - 1,
@@ -59,15 +59,15 @@ void set_interrupt_handler(uint8_t vector, interrupt_handler_t handler)
     handlers[vector] = handler;
 }
 
-/* Called by common_interrupt_code for every interrupt, with interrupts off. */
-extern "C" void handle_interrupt(struct Registers *r)
+// Called by common_interrupt_code for every interrupt, with interrupts off.
+extern "C" void handle_interrupt(Registers *r)
 {
     uint32_t vector = r->vector;
 
     if (vector >= FIRST_IRQ_VECTOR && vector <= LAST_IRQ_VECTOR)
         pic_eoi(vector - FIRST_IRQ_VECTOR);
 
-    if (handlers[vector] != NULL) {
+    if (handlers[vector] != nullptr) {
         handlers[vector](r);
     } else if (vector < FIRST_IRQ_VECTOR) {
         if (r->cs & 3)
@@ -75,8 +75,8 @@ extern "C" void handle_interrupt(struct Registers *r)
         panic_with_registers(r, "unhandled CPU exception");
     }
 
-    /* The kernel isn't preempted, so a switch only happens on the way back
-     * to user mode. */
+    // The kernel isn't preempted, so a switch only happens on the way back
+    // to user mode.
     if (r->cs & 3)
         switch_process_if_needed();
 }

@@ -1,5 +1,5 @@
-/* Two-level x86 paging. A virtual address splits into a 10-bit page directory
- * index, a 10-bit page table index and a 12-bit offset. */
+// Two-level x86 paging. A virtual address splits into a 10-bit page directory
+// index, a 10-bit page table index and a 12-bit offset.
 
 #include "console.h"
 #include "hal.h"
@@ -26,12 +26,12 @@ static uint32_t *get_page_table(uint32_t *page_dir, uint32_t virt,
 
     if ((*entry & PTE_PRESENT) == 0) {
         if (!create)
-            return NULL;
+            return nullptr;
 
         uint32_t table = alloc_frame();
 
         if (table == 0)
-            return NULL;
+            return nullptr;
 
         memset(phys_to_virt(table), 0, PAGE_SIZE);
         *entry = table | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
@@ -44,7 +44,7 @@ int paging_map(uint32_t *page_dir, uint32_t virt, uint32_t phys, uint32_t flags)
 {
     uint32_t *table = get_page_table(page_dir, virt, flags, 1);
 
-    if (table == NULL)
+    if (table == nullptr)
         return -1;
 
     table[PT_INDEX(virt)] = (phys & PAGE_MASK) | flags | PTE_PRESENT;
@@ -52,13 +52,13 @@ int paging_map(uint32_t *page_dir, uint32_t virt, uint32_t phys, uint32_t flags)
     return 0;
 }
 
-/* Removes a mapping and returns the physical address it pointed to. */
+// Removes a mapping and returns the physical address it pointed to.
 uint32_t paging_unmap(uint32_t *page_dir, uint32_t virt)
 {
     uint32_t *table = get_page_table(page_dir, virt, 0, 0);
     uint32_t entry;
 
-    if (table == NULL || (table[PT_INDEX(virt)] & PTE_PRESENT) == 0)
+    if (table == nullptr || (table[PT_INDEX(virt)] & PTE_PRESENT) == 0)
         return 0;
 
     entry = table[PT_INDEX(virt)];
@@ -67,7 +67,7 @@ uint32_t paging_unmap(uint32_t *page_dir, uint32_t virt)
     return entry & PAGE_MASK;
 }
 
-/* Returns the page table entry for an address, or 0 if there isn't one. */
+// Returns the page table entry for an address, or 0 if there isn't one.
 uint32_t paging_lookup(const uint32_t *page_dir, uint32_t virt)
 {
     uint32_t entry = page_dir[PD_INDEX(virt)];
@@ -80,12 +80,12 @@ uint32_t paging_lookup(const uint32_t *page_dir, uint32_t virt)
 
 void paging_switch(uint32_t *page_dir)
 {
-    write_cr3(virt_to_phys(page_dir));   /* this also flushes the TLB */
+    write_cr3(virt_to_phys(page_dir));  // this also flushes the TLB
 }
 
-static void page_fault(struct Registers *r)
+static void page_fault(Registers *r)
 {
-    /* A bad program only ends itself. A bad kernel can't be trusted to go on. */
+    // A bad program only ends itself. A bad kernel can't be trusted to go on.
     if (r->cs & 3)
         process_fault(r, "segmentation fault");
 
@@ -94,7 +94,7 @@ static void page_fault(struct Registers *r)
     panic_with_registers(r, "page fault in kernel");
 }
 
-void paging_init(void)
+void paging_init()
 {
     uint32_t page_dir = alloc_frame();
     uint32_t memory_top = total_frames() * PAGE_SIZE;
@@ -105,8 +105,8 @@ void paging_init(void)
     kernel_page_dir = (uint32_t *)phys_to_virt(page_dir);
     memset(kernel_page_dir, 0, PAGE_SIZE);
 
-    /* All RAM appears at KERNEL_VMA in every address space. These tables never
-     * change, so each process can share them by copying the directory entries. */
+    // All RAM appears at KERNEL_VMA in every address space. These tables never
+    // change, so each process can share them by copying the directory entries.
     for (uint32_t phys = 0; phys < memory_top; phys += PAGE_SIZE) {
         if (paging_map(kernel_page_dir, (uint32_t)phys_to_virt(phys), phys, PTE_WRITABLE) != 0)
             panic("no memory for the kernel page tables");

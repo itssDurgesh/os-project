@@ -1,13 +1,13 @@
-/* PID 1: sets up the console, starts login, and collects orphaned processes.
- * When a user logs out, init starts login again. */
+// PID 1: sets up the console, starts login, and collects orphaned processes.
+// When a user logs out, init starts login again.
 
 #include "libc.h"
 
-int main(void)
+int main()
 {
-    char *argv[] = { (char *)"/bin/login", NULL };
+    char *argv[] = { (char *)"/bin/login", nullptr };
 
-    /* These become FDs 0, 1 and 2, which every other program inherits. */
+    // These become FDs 0, 1 and 2, which every other program inherits.
     open("/dev/console", O_RDWR);
     open("/dev/console", O_RDWR);
     open("/dev/console", O_RDWR);
@@ -21,8 +21,8 @@ int main(void)
             exit(1);
         }
 
-        /* Runs for orphans too, until the login session ends. */
-        while (wait(NULL) != pid)
+        // Runs for orphans too, until the login session ends.
+        while (wait(nullptr) != pid)
             ;
     }
 }

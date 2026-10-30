@@ -1,4 +1,4 @@
-/* kprintf: the kernel's printf. Output goes to the serial port and the screen. */
+// kprintf: the kernel's printf. Output goes to the serial port and the screen.
 
 #include "console.h"
 #include "hal.h"

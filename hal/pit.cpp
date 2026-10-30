@@ -1,17 +1,17 @@
-/* The Programmable Interval Timer: the tick that drives the scheduler. */
+// The Programmable Interval Timer: the tick that drives the scheduler.
 
 #include "hal.h"
 #include "process.h"
 
 #define PIT_COMMAND   0x43
 #define PIT_CHANNEL0  0x40
-#define PIT_SQUARE    0x36      /* channel 0, low then high byte, square wave */
+#define PIT_SQUARE    0x36  // channel 0, low then high byte, square wave
 #define PIT_BASE_HZ   1193182
 #define TIMER_IRQ     0
 
 static volatile uint32_t ticks;
 
-static void timer_interrupt(struct Registers *r)
+static void timer_interrupt(Registers *r)
 {
     (void)r;
     ticks = ticks + 1;
@@ -30,7 +30,7 @@ void timer_init(uint32_t hz)
     pic_unmask(TIMER_IRQ);
 }
 
-uint32_t get_ticks(void)
+uint32_t get_ticks()
 {
     return ticks;
 }

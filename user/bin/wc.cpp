@@ -1,4 +1,4 @@
-/* wc: counts lines, words and bytes in a file or standard input. */
+// wc: counts lines, words and bytes in a file or standard input.
 
 #include "libc.h"
 

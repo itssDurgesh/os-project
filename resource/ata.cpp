@@ -1,6 +1,6 @@
-/* ATA disk driver, primary channel, master drive, using programmed I/O (PIO).
- * The process sleeps until the disk raises IRQ 14, so waiting costs no CPU time.
- * DMA is a stretch goal and would sit behind these same two functions. */
+// ATA disk driver, primary channel, master drive, using programmed I/O (PIO).
+// The process sleeps until the disk raises IRQ 14, so waiting costs no CPU time.
+// DMA is a stretch goal and would sit behind these same two functions.
 
 #include "console.h"
 #include "errno.h"
@@ -20,7 +20,7 @@
 #define ATA_COMMAND     0x1F7
 
 #define STATUS_ERROR    0x01
-#define STATUS_DRQ      0x08    /* the drive is ready to transfer data */
+#define STATUS_DRQ      0x08  // the drive is ready to transfer data
 #define STATUS_BUSY     0x80
 
 #define COMMAND_READ    0x20
@@ -32,19 +32,19 @@
 #define WORDS_PER_SECTOR 256
 #define ATA_IRQ 14
 
-static struct Mutex ata_lock;
-static struct WaitQueue irq_waiters;
+static Mutex ata_lock;
+static WaitQueue irq_waiters;
 static volatile bool irq_arrived;
 
-static void ata_interrupt(struct Registers *r)
+static void ata_interrupt(Registers *r)
 {
     (void)r;
-    inb(ATA_STATUS);            /* reading the status clears the interrupt */
+    inb(ATA_STATUS);  // reading the status clears the interrupt
     irq_arrived = true;
     irq_waiters.wake_all();
 }
 
-static void wait_for_irq(void)
+static void wait_for_irq()
 {
     uint32_t flags = turn_off_interrupts();
 
@@ -55,13 +55,13 @@ static void wait_for_irq(void)
     restore_interrupts(flags);
 }
 
-static void wait_not_busy(void)
+static void wait_not_busy()
 {
     while (inb(ATA_STATUS) & STATUS_BUSY)
         ;
 }
 
-static int wait_for_data(void)
+static int wait_for_data()
 {
     uint8_t status;
 
@@ -129,7 +129,7 @@ int ata_write(uint32_t lba, uint32_t sectors, const void *buffer)
     return result;
 }
 
-void ata_init(void)
+void ata_init()
 {
     set_interrupt_handler(VECTOR_IRQ_BASE + ATA_IRQ, ata_interrupt);
     pic_unmask(ATA_IRQ);

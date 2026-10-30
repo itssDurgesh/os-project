@@ -1,6 +1,6 @@
-/* Global Descriptor Table and Task State Segment.
- * The GDT defines the kernel and user segments. The TSS tells the CPU which
- * kernel stack to switch to when an interrupt arrives from ring 3. */
+// Global Descriptor Table and Task State Segment.
+// The GDT defines the kernel and user segments. The TSS tells the CPU which
+// kernel stack to switch to when an interrupt arrives from ring 3.
 
 #include "hal.h"
 #include "kstring.h"
@@ -13,7 +13,7 @@
 #define ACCESS_USER_DATA   0xF2
 #define ACCESS_TSS         0x89
 
-#define FLAGS_4K_32BIT 0xCF     /* 4 KB limit units, 32-bit segment */
+#define FLAGS_4K_32BIT 0xCF  // 4 KB limit units, 32-bit segment
 
 struct gdt_entry {
     uint16_t limit_low;
@@ -31,7 +31,7 @@ struct gdt_pointer {
 
 struct tss {
     uint32_t previous;
-    uint32_t esp0, ss0;         /* kernel stack used on entry from ring 3 */
+    uint32_t esp0, ss0;  // kernel stack used on entry from ring 3
     uint32_t unused[22];
     uint16_t trap;
     uint16_t iomap_base;
@@ -53,7 +53,7 @@ static void gdt_set(int index, uint32_t base, uint32_t limit,
     gdt[index].base_high = (base >> 24) & 0xFF;
 }
 
-void gdt_init(void)
+void gdt_init()
 {
     struct gdt_pointer pointer = {
         .limit = sizeof(gdt) - 1,

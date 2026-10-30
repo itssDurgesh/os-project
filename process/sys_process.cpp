@@ -1,4 +1,4 @@
-/* Process system calls. */
+// Process system calls.
 
 #include <stddef.h>
 
@@ -11,14 +11,14 @@
 
 #define MS_PER_TICK (1000 / TIMER_HZ)
 
-int sys_fork(struct Registers *r)
+int sys_fork(Registers *r)
 {
     return process_fork(r);
 }
 
-/* Copies the path and arguments into the kernel, because exec destroys the user
- * memory they live in. */
-int sys_exec(struct Registers *r)
+// Copies the path and arguments into the kernel, because exec destroys the user
+// memory they live in.
+int sys_exec(Registers *r)
 {
     const char *user_path = (const char *)r->ebx;
     char *const *user_argv = (char *const *)r->ecx;
@@ -29,7 +29,7 @@ int sys_exec(struct Registers *r)
     int argc = 0;
     int status;
 
-    if (strings == NULL || path == NULL || argv == NULL) {
+    if (strings == nullptr || path == nullptr || argv == nullptr) {
         status = -ENOMEM;
         goto out;
     }
@@ -47,7 +47,7 @@ int sys_exec(struct Registers *r)
         }
 
         argument = user_argv[argc];
-        if (argument == NULL)
+        if (argument == nullptr)
             break;
 
         if (argc == MAX_ARGUMENTS) {
@@ -62,7 +62,7 @@ int sys_exec(struct Registers *r)
         argv[argc++] = strings + used;
         used += strlen(strings + used) + 1;
     }
-    argv[argc] = NULL;
+    argv[argc] = nullptr;
 
     status = process_exec(path, argv, r);
 
@@ -73,46 +73,46 @@ out:
     return status;
 }
 
-int sys_exit(struct Registers *r)
+int sys_exit(Registers *r)
 {
     process_exit((int)r->ebx);
 }
 
-int sys_wait(struct Registers *r)
+int sys_wait(Registers *r)
 {
     int *user_status = (int *)r->ebx;
     int status;
     int pid;
 
-    if (user_status != NULL && !user_range_valid(user_status, sizeof(int), true))
+    if (user_status != nullptr && !user_range_valid(user_status, sizeof(int), true))
         return -EFAULT;
 
     pid = process_wait(&status);
-    if (pid > 0 && user_status != NULL)
+    if (pid > 0 && user_status != nullptr)
         *user_status = status;
     return pid;
 }
 
-int sys_getpid(struct Registers *r)
+int sys_getpid(Registers *r)
 {
     (void)r;
     return current_process->pid;
 }
 
-int sys_getuid(struct Registers *r)
+int sys_getuid(Registers *r)
 {
     (void)r;
     return current_process->uid;
 }
 
-int sys_getgid(struct Registers *r)
+int sys_getgid(Registers *r)
 {
     (void)r;
     return current_process->gid;
 }
 
-/* Only root can change identity. This is how login becomes the user. */
-int sys_setuid(struct Registers *r)
+// Only root can change identity. This is how login becomes the user.
+int sys_setuid(Registers *r)
 {
     if (current_process->uid != 0)
         return -EPERM;
@@ -121,7 +121,7 @@ int sys_setuid(struct Registers *r)
     return 0;
 }
 
-int sys_setgid(struct Registers *r)
+int sys_setgid(Registers *r)
 {
     if (current_process->uid != 0)
         return -EPERM;
@@ -130,8 +130,8 @@ int sys_setgid(struct Registers *r)
     return 0;
 }
 
-/* Fills in details of the process at this position in the list, for ps. */
-int sys_procinfo(struct Registers *r)
+// Fills in details of the process at this position in the list, for ps.
+int sys_procinfo(Registers *r)
 {
     int index = (int)r->ebx;
     struct procinfo *output = (struct procinfo *)r->ecx;
@@ -139,7 +139,7 @@ int sys_procinfo(struct Registers *r)
     if (!user_range_valid(output, sizeof(*output), true))
         return -EFAULT;
 
-    for (struct Process *process = process_list(); process != NULL;
+    for (Process *process = process_list(); process != nullptr;
          process = process->list_next) {
         if (index-- == 0) {
             output->pid = process->pid;
@@ -155,17 +155,17 @@ int sys_procinfo(struct Registers *r)
     return 0;
 }
 
-/* Sleeps for a number of milliseconds. */
-int sys_sleep(struct Registers *r)
+// Sleeps for a number of milliseconds.
+int sys_sleep(Registers *r)
 {
     thread_sleep(r->ebx / MS_PER_TICK);
     return 0;
 }
 
-int sys_pipe(struct Registers *r)
+int sys_pipe(Registers *r)
 {
     int *user_fds = (int *)r->ebx;
-    struct file *read_end, *write_end;
+    File *read_end, *write_end;
     int read_fd = -1;
     int write_fd = -1;
     int status;
@@ -174,7 +174,7 @@ int sys_pipe(struct Registers *r)
         return -EFAULT;
 
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {
-        if (current_process->files[fd] != NULL)
+        if (current_process->files[fd] != nullptr)
             continue;
 
         if (read_fd < 0) {

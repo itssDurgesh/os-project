@@ -1,4 +1,4 @@
-/* mkdir: creates folders. */
+// mkdir: creates folders.
 
 #include "libc.h"
 

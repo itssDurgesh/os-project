@@ -1,5 +1,5 @@
-/* COM1 serial port. Everything the kernel prints also goes here, which is what
- * ends up in boot.log. */
+// COM1 serial port. Everything the kernel prints also goes here, which is what
+// ends up in boot.log.
 
 #include "hal.h"
 
@@ -13,14 +13,14 @@
 
 #define QEMU_EXIT_PORT 0xF4
 
-void serial_init(void)
+void serial_init()
 {
-    outb(COM1 + 1, 0x00);   /* no serial interrupts */
-    outb(COM1 + 3, 0x80);   /* unlock the baud rate divisor */
-    outb(COM1 + 0, 0x03);   /* divisor 3 = 38400 baud */
+    outb(COM1 + 1, 0x00);  // no serial interrupts
+    outb(COM1 + 3, 0x80);  // unlock the baud rate divisor
+    outb(COM1 + 0, 0x03);  // divisor 3 = 38400 baud
     outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x03);   /* 8 data bits, no parity, 1 stop bit */
-    outb(COM1 + 2, 0xC7);   /* enable and clear the FIFOs */
+    outb(COM1 + 3, 0x03);  // 8 data bits, no parity, 1 stop bit
+    outb(COM1 + 2, 0xC7);  // enable and clear the FIFOs
 }
 
 void serial_putc(char c)
@@ -32,20 +32,20 @@ void serial_putc(char c)
 
 static void (*input_callback)(char c);
 
-static void serial_interrupt(struct Registers *r)
+static void serial_interrupt(Registers *r)
 {
     (void)r;
     while (inb(COM1 + LINE_STATUS) & DATA_READY)
         input_callback((char)inb(COM1));
 }
 
-/* Typing in the serial terminal works like typing on the keyboard. */
+// Typing in the serial terminal works like typing on the keyboard.
 void serial_enable_input(void (*callback)(char c))
 {
     input_callback = callback;
     set_interrupt_handler(VECTOR_IRQ_BASE + COM1_IRQ, serial_interrupt);
-    outb(COM1 + 4, 0x0B);   /* the chip needs this to send interrupts at all */
-    outb(COM1 + 1, 0x01);   /* interrupt when a byte arrives */
+    outb(COM1 + 4, 0x0B);  // the chip needs this to send interrupts at all
+    outb(COM1 + 1, 0x01);  // interrupt when a byte arrives
     pic_unmask(COM1_IRQ);
 }
 

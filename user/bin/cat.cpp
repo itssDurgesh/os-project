@@ -1,4 +1,4 @@
-/* cat: prints files, or standard input if no file is named. */
+// cat: prints files, or standard input if no file is named.
 
 #include "libc.h"
 

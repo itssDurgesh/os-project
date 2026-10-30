@@ -1,4 +1,4 @@
-/* ps: lists every process. */
+// ps: lists every process.
 
 #include "libc.h"
 
@@ -11,7 +11,7 @@ static const char *state_name(int state)
     return (state >= 0 && state < 5) ? names[state] : "?";
 }
 
-int main(void)
+int main()
 {
     struct procinfo info;
 

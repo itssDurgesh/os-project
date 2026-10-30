@@ -1,5 +1,5 @@
-/* Everything the kernel and user programs must agree on: system call numbers,
- * flags and the structures passed between them (owner: Integration). */
+// Everything the kernel and user programs must agree on: system call numbers,
+// flags and the structures passed between them (owner: Integration).
 
 #ifndef ABI_H
 #define ABI_H

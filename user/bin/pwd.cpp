@@ -1,8 +1,8 @@
-/* pwd: prints the current folder. */
+// pwd: prints the current folder.
 
 #include "libc.h"
 
-int main(void)
+int main()
 {
     char path[MAX_PATH];
 

@@ -1,4 +1,4 @@
-/* Memory and string helpers. The kernel has no C library, so these live here. */
+// Memory and string helpers. The kernel has no C library, so these live here.
 
 #ifndef KSTRING_H
 #define KSTRING_H

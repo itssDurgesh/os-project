@@ -1,5 +1,5 @@
-/* login: asks for a name and password, then becomes that user and starts their
- * shell. It starts as root, because only root may change identity. */
+// login: asks for a name and password, then becomes that user and starts their
+// shell. It starts as root, because only root may change identity.
 
 #include "libc.h"
 
@@ -19,14 +19,14 @@ static bool read_field(char *buffer)
     return true;
 }
 
-int main(void)
+int main()
 {
     char name[FIELD_LENGTH];
     char password[FIELD_LENGTH];
     struct user user;
 
     for (;;) {
-        char *argv[] = { user.shell, NULL };
+        char *argv[] = { user.shell, nullptr };
         bool name_read;
         bool password_read;
 
@@ -42,8 +42,8 @@ int main(void)
         if (!name_read || !password_read)
             continue;
 
-        /* Check the password even for unknown names, and give the same answer,
-         * so nobody can tell which names exist. */
+        // Check the password even for unknown names, and give the same answer,
+        // so nobody can tell which names exist.
         bool known = user_by_name(name, &user);
         bool correct = user_check_password(name, password);
 
@@ -55,7 +55,7 @@ int main(void)
             continue;
         }
 
-        /* gid first: after setuid, this process is no longer allowed to. */
+        // gid first: after setuid, this process is no longer allowed to.
         setgid(user.gid);
         setuid(user.uid);
         chdir(user.home);

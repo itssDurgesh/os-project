@@ -1,8 +1,7 @@
-/* Partition table and disk buffer cache.
- *
- * The cache keeps recently used disk blocks in RAM. It's write-through: a write
- * goes to the disk straight away, so a crash loses as little as possible. When
- * the cache is full, the least recently used free buffer is reused. */
+// Partition table and disk buffer cache.
+// The cache keeps recently used disk blocks in RAM. It's write-through: a write
+// goes to the disk straight away, so a crash loses as little as possible. When
+// the cache is full, the least recently used free buffer is reused.
 
 #include "console.h"
 #include "kstring.h"
@@ -25,13 +24,13 @@ struct mbr_entry {
     uint32_t sector_count;
 } __attribute__((packed));
 
-struct partition {
+struct Partition {
     uint32_t first_sector;
     uint32_t sector_count;
 };
 
-static struct partition partitions[PARTITION_COUNT];
-static struct buffer buffers[BUFFER_COUNT];
+static Partition partitions[PARTITION_COUNT];
+static Buffer buffers[BUFFER_COUNT];
 static uint32_t use_counter;
 static uint32_t disk_reads;
 
@@ -43,45 +42,45 @@ static uint32_t block_lba(int partition, uint32_t block)
     return partitions[partition].first_sector + block * SECTORS_PER_BLOCK;
 }
 
-static struct buffer *find_buffer(int partition, uint32_t block)
+static Buffer *find_buffer(int partition, uint32_t block)
 {
     for (int i = 0; i < BUFFER_COUNT; i++) {
-        struct buffer *buffer = &buffers[i];
+        Buffer *buffer = &buffers[i];
 
         if (buffer->valid && buffer->partition == partition &&
             buffer->block == block)
             return buffer;
     }
-    return NULL;
+    return nullptr;
 }
 
-static struct buffer *find_reusable_buffer(void)
+static Buffer *find_reusable_buffer()
 {
-    struct buffer *oldest = NULL;
+    Buffer *oldest = nullptr;
 
     for (int i = 0; i < BUFFER_COUNT; i++) {
-        struct buffer *buffer = &buffers[i];
+        Buffer *buffer = &buffers[i];
 
         if (buffer->busy)
             continue;
         if (!buffer->valid)
             return buffer;
-        if (oldest == NULL || buffer->last_used < oldest->last_used)
+        if (oldest == nullptr || buffer->last_used < oldest->last_used)
             oldest = buffer;
     }
     return oldest;
 }
 
-struct buffer *block_get(int partition, uint32_t block)
+Buffer *block_get(int partition, uint32_t block)
 {
-    struct buffer *buffer;
+    Buffer *buffer;
 
     for (;;) {
         buffer = find_buffer(partition, block);
 
-        if (buffer == NULL) {
+        if (buffer == nullptr) {
             buffer = find_reusable_buffer();
-            if (buffer == NULL)
+            if (buffer == nullptr)
                 panic("every disk buffer is in use");
 
             buffer->partition = partition;
@@ -103,8 +102,8 @@ struct buffer *block_get(int partition, uint32_t block)
             break;
         }
 
-        /* Someone else is using it, so wait and look again, because it may
-         * have been reused for another block by the time we wake. */
+        // Someone else is using it, so wait and look again, because it may
+        // have been reused for another block by the time we wake.
         buffer->waiters.sleep();
     }
 
@@ -112,19 +111,19 @@ struct buffer *block_get(int partition, uint32_t block)
     return buffer;
 }
 
-void block_put(struct buffer *buffer)
+void block_put(Buffer *buffer)
 {
     buffer->busy = false;
     buffer->waiters.wake_all();
 }
 
-int block_write(struct buffer *buffer)
+int block_write(Buffer *buffer)
 {
     return ata_write(block_lba(buffer->partition, buffer->block),
                      SECTORS_PER_BLOCK, buffer->data);
 }
 
-uint32_t block_disk_reads(void)
+uint32_t block_disk_reads()
 {
     return disk_reads;
 }
@@ -134,12 +133,12 @@ uint32_t partition_blocks(int partition)
     return partitions[partition].sector_count / SECTORS_PER_BLOCK;
 }
 
-static void read_partition_table(void)
+static void read_partition_table()
 {
     uint8_t *sector = (uint8_t *)kmalloc(SECTOR_SIZE);
     struct mbr_entry entries[MBR_PARTITIONS];
 
-    if (sector == NULL || ata_read(0, 1, sector) != 0)
+    if (sector == nullptr || ata_read(0, 1, sector) != 0)
         panic("can't read the partition table");
 
     if (*(uint16_t *)(sector + BOOT_SIGNATURE_OFFSET) != BOOT_SIGNATURE)
@@ -157,7 +156,7 @@ static void read_partition_table(void)
     kfree(sector);
 }
 
-void storage_init(void)
+void storage_init()
 {
     uint32_t frames = alloc_frames(BUFFER_COUNT);
 

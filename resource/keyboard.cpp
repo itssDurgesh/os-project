@@ -1,6 +1,6 @@
-/* PS/2 keyboard driver and the input event queue. The interrupt handler only
- * turns a scancode into a character and queues it. A process then reads the
- * queue, sleeping when it's empty. */
+// PS/2 keyboard driver and the input event queue. The interrupt handler only
+// turns a scancode into a character and queues it. A process then reads the
+// queue, sleeping when it's empty.
 
 #include "hal.h"
 #include "input.h"
@@ -17,7 +17,7 @@
 
 #define QUEUE_SIZE 256
 
-/* Scancode set 1, US layout. 0 means the key has no character. */
+// Scancode set 1, US layout. 0 means the key has no character.
 static const char normal_keys[128] = {
     0, 27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
@@ -37,7 +37,7 @@ static const char shifted_keys[128] = {
 static char queue[QUEUE_SIZE];
 static volatile uint32_t queue_head;
 static volatile uint32_t queue_count;
-static struct WaitQueue readers;
+static WaitQueue readers;
 
 static bool shift_down;
 static bool ctrl_down;
@@ -46,14 +46,14 @@ static bool extended_key;
 void input_put_char(char c)
 {
     if (queue_count == QUEUE_SIZE)
-        return;                 /* nobody is reading, so drop the key */
+        return;  // nobody is reading, so drop the key
 
     queue[(queue_head + queue_count) % QUEUE_SIZE] = c;
-    queue_count++;
+    queue_count = queue_count + 1;
     readers.wake_all();
 }
 
-char input_get_char(void)
+char input_get_char()
 {
     uint32_t flags = turn_off_interrupts();
     char c;
@@ -63,13 +63,13 @@ char input_get_char(void)
 
     c = queue[queue_head];
     queue_head = (queue_head + 1) % QUEUE_SIZE;
-    queue_count--;
+    queue_count = queue_count - 1;
 
     restore_interrupts(flags);
     return c;
 }
 
-static void keyboard_interrupt(struct Registers *r)
+static void keyboard_interrupt(Registers *r)
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
     bool released = scancode & RELEASE_BIT;
@@ -83,7 +83,7 @@ static void keyboard_interrupt(struct Registers *r)
         return;
     }
     if (extended_key) {
-        extended_key = false;   /* arrow keys and so on have no character */
+        extended_key = false;  // arrow keys and so on have no character
         return;
     }
 
@@ -103,7 +103,7 @@ static void keyboard_interrupt(struct Registers *r)
         return;
 
     if (ctrl_down && c >= 'a' && c <= 'z')
-        c = c - 'a' + 1;        /* Ctrl+D becomes character 4 */
+        c = c - 'a' + 1;  // Ctrl+D becomes character 4
 
     input_put_char(c);
 }
@@ -113,7 +113,7 @@ static void serial_received(char c)
     input_put_char(c);
 }
 
-void keyboard_init(void)
+void keyboard_init()
 {
     set_interrupt_handler(VECTOR_IRQ_BASE + KEYBOARD_IRQ, keyboard_interrupt);
     pic_unmask(KEYBOARD_IRQ);

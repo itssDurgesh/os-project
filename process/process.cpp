@@ -1,4 +1,4 @@
-/* User processes: exec, fork, exit and wait. */
+// User processes: exec, fork, exit and wait.
 
 #include <stddef.h>
 
@@ -11,9 +11,9 @@
 
 #define USER_STACK_TOP   KERNEL_VMA
 #define USER_STACK_PAGES 32
-#define USER_EFLAGS      0x202          /* interrupts on */
+#define USER_EFLAGS      0x202  // interrupts on
 
-#define ELF_MAGIC  0x464C457F           /* 0x7F 'E' 'L' 'F' */
+#define ELF_MAGIC  0x464C457F  // 0x7F 'E' 'L' 'F'
 #define ELF_CLASS32 1
 #define ELF_TYPE_EXEC 2
 #define ELF_MACHINE_386 3
@@ -53,17 +53,17 @@ struct elf_segment {
     uint32_t align;
 };
 
-extern "C" void enter_user_mode(const struct Registers *r) __attribute__((noreturn));
-extern "C" void return_from_interrupt(void);
+extern "C" void enter_user_mode(const Registers *r) __attribute__((noreturn));
+extern "C" void return_from_interrupt();
 
-static struct WaitQueue child_exited;
+static WaitQueue child_exited;
 
-void process_init(void)
+void process_init()
 {
 }
 
-/* Maps fresh, zeroed pages over a range. Pages already mapped are left alone,
- * because two segments can share a page. */
+// Maps fresh, zeroed pages over a range. Pages already mapped are left alone,
+// because two segments can share a page.
 static int map_range(uint32_t *page_dir, uint32_t start, uint32_t end, uint32_t flags)
 {
     for (uint32_t virt = start & PAGE_MASK; virt < end; virt += PAGE_SIZE) {
@@ -85,7 +85,7 @@ static int map_range(uint32_t *page_dir, uint32_t start, uint32_t end, uint32_t 
     return 0;
 }
 
-static int load_segment(uint32_t *page_dir, struct inode *inode,
+static int load_segment(uint32_t *page_dir, Inode *inode,
                         const struct elf_segment *segment)
 {
     uint32_t flags = PTE_USER |
@@ -104,7 +104,7 @@ static int load_segment(uint32_t *page_dir, struct inode *inode,
         return status;
 
     chunk = (uint8_t *)kmalloc(PAGE_SIZE);
-    if (chunk == NULL)
+    if (chunk == nullptr)
         return -ENOMEM;
 
     while (done < segment->file_size) {
@@ -113,7 +113,7 @@ static int load_segment(uint32_t *page_dir, struct inode *inode,
         if (size > PAGE_SIZE)
             size = PAGE_SIZE;
 
-        if (inode->ops->read(inode, chunk, segment->offset + done, size) != (int)size) {
+        if (inode->read(chunk, segment->offset + done, size) != (int)size) {
             kfree(chunk);
             return -ENOEXEC;
         }
@@ -130,13 +130,13 @@ static int load_segment(uint32_t *page_dir, struct inode *inode,
     return 0;
 }
 
-static int load_program(uint32_t *page_dir, struct inode *inode, uint32_t *entry,
+static int load_program(uint32_t *page_dir, Inode *inode, uint32_t *entry,
                         uint32_t *heap_start)
 {
     struct elf_header header;
     uint32_t top = 0;
 
-    if (inode->ops->read(inode, &header, 0, sizeof(header)) != sizeof(header))
+    if (inode->read(&header, 0, sizeof(header)) != sizeof(header))
         return -ENOEXEC;
 
     if (header.magic != ELF_MAGIC || header.file_class != ELF_CLASS32 ||
@@ -148,7 +148,7 @@ static int load_program(uint32_t *page_dir, struct inode *inode, uint32_t *entry
         uint32_t offset = header.program_header_offset + i * sizeof(segment);
         int status;
 
-        if (inode->ops->read(inode, &segment, offset, sizeof(segment)) != sizeof(segment))
+        if (inode->read(&segment, offset, sizeof(segment)) != sizeof(segment))
             return -ENOEXEC;
 
         if (segment.type != ELF_SEGMENT_LOAD)
@@ -167,8 +167,8 @@ static int load_program(uint32_t *page_dir, struct inode *inode, uint32_t *entry
     return 0;
 }
 
-/* Builds the stack a new program starts with: argc, then the argv pointers,
- * with the strings above them. */
+// Builds the stack a new program starts with: argc, then the argv pointers,
+// with the strings above them.
 static int build_user_stack(uint32_t *page_dir, char *const argv[], uint32_t *user_esp)
 {
     uint32_t stack = USER_STACK_TOP;
@@ -180,7 +180,7 @@ static int build_user_stack(uint32_t *page_dir, char *const argv[], uint32_t *us
     if (status != 0)
         return status;
 
-    while (argv[argc] != NULL) {
+    while (argv[argc] != nullptr) {
         uint32_t length = strlen(argv[argc]) + 1;
 
         if (argc == MAX_ARGUMENTS)
@@ -221,11 +221,11 @@ static void set_name_from_path(const char *path)
     copy_string(current_process->name, name, PROCESS_NAME_LENGTH);
 }
 
-/* Replaces the current program. `path` and `argv` must be kernel copies, because
- * the old user memory is gone by the end. */
-int process_exec(const char *path, char *const argv[], struct Registers *r)
+// Replaces the current program. `path` and `argv` must be kernel copies, because
+// the old user memory is gone by the end.
+int process_exec(const char *path, char *const argv[], Registers *r)
 {
-    struct inode *inode;
+    Inode *inode;
     uint32_t *page_dir;
     uint32_t *old_page_dir = current_process->page_dir;
     uint32_t entry, heap_start, user_esp;
@@ -246,7 +246,7 @@ int process_exec(const char *path, char *const argv[], struct Registers *r)
     }
 
     page_dir = make_page_directory();
-    if (page_dir == NULL) {
+    if (page_dir == nullptr) {
         release_inode(inode);
         return -ENOMEM;
     }
@@ -278,16 +278,16 @@ int process_exec(const char *path, char *const argv[], struct Registers *r)
     return 0;
 }
 
-/* Turns the calling kernel thread into the first user process, PID 1. */
+// Turns the calling kernel thread into the first user process, PID 1.
 void process_start_first(const char *path)
 {
-    char *argv[] = { (char *)path, NULL };
-    struct Registers *frame =
-        (struct Registers *)(current_process->kernel_stack_top - sizeof(struct Registers));
+    char *argv[] = { (char *)path, nullptr };
+    Registers *frame =
+        (Registers *)(current_process->kernel_stack_top - sizeof(Registers));
     int status;
 
-    current_process->files = (file * *)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(struct file *));
-    if (current_process->files == NULL)
+    current_process->files = (File **)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(File *));
+    if (current_process->files == nullptr)
         panic("no memory for the first process");
 
     hold_inode(vfs_root());
@@ -301,13 +301,13 @@ void process_start_first(const char *path)
     enter_user_mode(frame);
 }
 
-int process_fork(const struct Registers *r)
+int process_fork(const Registers *r)
 {
-    struct Process *child = create_process(current_process->name, current_process->base_priority);
-    struct Registers *child_regs;
+    Process *child = create_process(current_process->name, current_process->base_priority);
+    Registers *child_regs;
     uint32_t *stack;
 
-    if (child == NULL)
+    if (child == nullptr)
         return -ENOMEM;
 
     kernel_stack_alloc(child);
@@ -316,19 +316,19 @@ int process_fork(const struct Registers *r)
     child->gid = current_process->gid;
     child->heap_end = current_process->heap_end;
     child->page_dir = copy_page_directory(current_process->page_dir);
-    child->files = (file * *)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(struct file *));
+    child->files = (File **)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(File *));
 
-    if (child->page_dir == NULL || child->files == NULL) {
-        if (child->page_dir != NULL)
+    if (child->page_dir == nullptr || child->files == nullptr) {
+        if (child->page_dir != nullptr)
             delete_page_directory(child->page_dir);
         kfree(child->files);
         delete_process(child);
         return -ENOMEM;
     }
 
-    /* Parent and child share each open file, including its position. */
+    // Parent and child share each open file, including its position.
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {
-        if (current_process->files[fd] != NULL) {
+        if (current_process->files[fd] != nullptr) {
             hold_file(current_process->files[fd]);
             child->files[fd] = current_process->files[fd];
         }
@@ -338,17 +338,17 @@ int process_fork(const struct Registers *r)
     child->cwd = current_process->cwd;
     copy_string(child->cwd_path, current_process->cwd_path, MAX_PATH);
 
-    /* The child wakes up returning from the same system call, with result 0. */
-    child_regs = (struct Registers *)(child->kernel_stack_top - sizeof(struct Registers));
+    // The child wakes up returning from the same system call, with result 0.
+    child_regs = (Registers *)(child->kernel_stack_top - sizeof(Registers));
     *child_regs = *r;
     child_regs->eax = 0;
 
     stack = (uint32_t *)child_regs;
     *--stack = (uint32_t)return_from_interrupt;
-    *--stack = 0;   /* ebx */
-    *--stack = 0;   /* esi */
-    *--stack = 0;   /* edi */
-    *--stack = 0;   /* ebp */
+    *--stack = 0;  // ebx
+    *--stack = 0;  // esi
+    *--stack = 0;  // edi
+    *--stack = 0;  // ebp
     child->saved_esp = (uint32_t)stack;
 
     add_new_process(child);
@@ -362,23 +362,23 @@ void process_exit(int status)
     enable_interrupts();
 
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {
-        if (current_process->files[fd] != NULL) {
+        if (current_process->files[fd] != nullptr) {
             file_close(current_process->files[fd]);
-            current_process->files[fd] = NULL;
+            current_process->files[fd] = nullptr;
         }
     }
     kfree(current_process->files);
-    current_process->files = NULL;
+    current_process->files = nullptr;
 
     release_inode(current_process->cwd);
-    current_process->cwd = NULL;
+    current_process->cwd = nullptr;
 
     paging_switch(kernel_page_dir);
     current_process->page_dir = kernel_page_dir;
     delete_page_directory(old_page_dir);
 
-    /* Orphans are adopted by init, which collects them. */
-    for (struct Process *process = process_list(); process != NULL;
+    // Orphans are adopted by init, which collects them.
+    for (Process *process = process_list(); process != nullptr;
          process = process->list_next) {
         if (process->parent_pid == current_process->pid)
             process->parent_pid = INIT_PID;
@@ -393,7 +393,7 @@ int process_wait(int *status)
     for (;;) {
         bool has_children = false;
 
-        for (struct Process *process = process_list(); process != NULL;
+        for (Process *process = process_list(); process != nullptr;
              process = process->list_next) {
             if (process->parent_pid != current_process->pid)
                 continue;
@@ -415,8 +415,8 @@ int process_wait(int *status)
     }
 }
 
-/* A program did something illegal. Only that program stops. */
-void process_fault(const struct Registers *r, const char *reason)
+// A program did something illegal. Only that program stops.
+void process_fault(const Registers *r, const char *reason)
 {
     kprintf("%s: %s at %p, process ended\n", current_process->name, reason, (void *)r->eip);
     process_exit(EXIT_STATUS_FAULT);

@@ -1,4 +1,4 @@
-/* Per-process address spaces, and safe access to user memory from the kernel. */
+// Per-process address spaces, and safe access to user memory from the kernel.
 
 #include "errno.h"
 #include "kstring.h"
@@ -6,17 +6,17 @@
 #include "process.h"
 
 #define ENTRIES_PER_TABLE 1024
-#define KERNEL_PD_START   (KERNEL_VMA >> 22)    /* entry 768 */
+#define KERNEL_PD_START   (KERNEL_VMA >> 22)  // entry 768
 #define FLAGS_MASK        (PAGE_SIZE - 1)
 
-/* A new address space holds only the kernel's shared mappings. */
-uint32_t *make_page_directory(void)
+// A new address space holds only the kernel's shared mappings.
+uint32_t *make_page_directory()
 {
     uint32_t frame = alloc_frame();
     uint32_t *page_dir;
 
     if (frame == 0)
-        return NULL;
+        return nullptr;
 
     page_dir = (uint32_t *)phys_to_virt(frame);
     memset(page_dir, 0, PAGE_SIZE);
@@ -25,13 +25,13 @@ uint32_t *make_page_directory(void)
     return page_dir;
 }
 
-/* Gives a child its own copy of every user page. */
+// Gives a child its own copy of every user page.
 uint32_t *copy_page_directory(const uint32_t *parent)
 {
     uint32_t *child = make_page_directory();
 
-    if (child == NULL)
-        return NULL;
+    if (child == nullptr)
+        return nullptr;
 
     for (uint32_t directory = 0; directory < KERNEL_PD_START; directory++) {
         const uint32_t *table;
@@ -53,7 +53,7 @@ uint32_t *copy_page_directory(const uint32_t *parent)
                 if (frame != 0)
                     free_frame(frame);
                 delete_page_directory(child);
-                return NULL;
+                return nullptr;
             }
             memcpy(phys_to_virt(frame), phys_to_virt(table[index] & PAGE_MASK), PAGE_SIZE);
         }
@@ -61,7 +61,7 @@ uint32_t *copy_page_directory(const uint32_t *parent)
     return child;
 }
 
-/* Frees all user pages, their tables and the directory. */
+// Frees all user pages, their tables and the directory.
 void delete_page_directory(uint32_t *page_dir)
 {
     for (uint32_t directory = 0; directory < KERNEL_PD_START; directory++) {
@@ -80,7 +80,7 @@ void delete_page_directory(uint32_t *page_dir)
     free_frame(virt_to_phys(page_dir));
 }
 
-/* Copies into an address space that may not be the active one. */
+// Copies into an address space that may not be the active one.
 int write_to_page_directory(uint32_t *page_dir, uint32_t virt, const void *source, uint32_t count)
 {
     const uint8_t *input = (const uint8_t *)source;
@@ -103,8 +103,8 @@ int write_to_page_directory(uint32_t *page_dir, uint32_t virt, const void *sourc
     return 0;
 }
 
-/* A bad pointer from a program must fail the system call, not crash the kernel,
- * so every page is checked before the kernel touches it. */
+// A bad pointer from a program must fail the system call, not crash the kernel,
+// so every page is checked before the kernel touches it.
 bool user_range_valid(const void *address, uint32_t count, bool write)
 {
     uint32_t start = (uint32_t)address;

@@ -48,6 +48,9 @@ static void kernel_thread(void *argument)
     kprintf("%u MB RAM, %u MB free.\n", total_frames() / 256, free_frame_count() / 256);
     kprintf("BOOT-OK\n");
 
+    // Step 9: Memory late stage, now that files and disk work.
+    virtual_memory_init();
+
     // Step 10: System calls, then the first user program in ring 3.
     syscall_init();
     process_init();

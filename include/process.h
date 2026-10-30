@@ -8,6 +8,7 @@
 
 #include "abi.h"
 #include "hal.h"
+#include "memory.h"
 
 class File;
 class Inode;
@@ -68,6 +69,9 @@ struct Process {
 
     uint32_t *page_dir;
     uint32_t heap_end;  // the current top of the heap
+    int heap_area;  // which entry of `areas` is the heap
+    uint32_t next_mmap_address;
+    MemoryArea areas[MAX_MEMORY_AREAS];
 
     File **files;  // per-process file descriptor table
     Inode *cwd;

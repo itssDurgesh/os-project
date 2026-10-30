@@ -34,11 +34,12 @@ struct Buffer {
 // ATA driver
 void ata_init();
 int ata_read(uint32_t lba, uint32_t sectors, void *buffer);
-int ata_write(uint32_t lba, uint32_t sectors, const void *buffer);
+int ata_write(uint32_t lba, uint32_t sectors, const void *buffer, bool flush = true);
 
 // Partitions and buffer cache
 void storage_init();
 uint32_t partition_blocks(int partition);
+uint32_t partition_first_sector(int partition);
 
 // Returns the block, read from disk if needed, reserved for the caller.
 Buffer *block_get(int partition, uint32_t block);
@@ -48,5 +49,13 @@ void block_put(Buffer *buffer);
 int block_write(Buffer *buffer);
 
 uint32_t block_disk_reads();
+
+// Swap
+void swap_init();
+int swap_alloc_slot();
+void swap_free_slot(uint32_t slot);
+uint32_t swap_used_slots();
+void swap_read(uint32_t slot, void *page);
+void swap_write(uint32_t slot, const void *page);
 
 #endif

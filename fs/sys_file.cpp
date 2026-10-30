@@ -62,28 +62,91 @@ int sys_close(Registers *r)
     return 0;
 }
 
+// Copies through a kernel buffer. If the filesystem wrote straight into user
+// memory it could page fault while holding its lock, and the fault might need the
+// same lock to load the page. See the rule in memory/virtual_memory.cpp.
 int sys_read(Registers *r)
 {
     File *file = get_file((int)r->ebx);
+    char *user_buffer = (char *)r->ecx;
+    uint32_t count = r->edx;
+    uint32_t done = 0;
 
     if (file == nullptr)
         return -EBADF;
-    if (!user_range_valid((void *)r->ecx, r->edx, true))
+    if (!user_range_valid(user_buffer, count, true))
         return -EFAULT;
 
-    return file_read(file, (void *)r->ecx, r->edx);
+    char *kernel_buffer = (char *)kmalloc(PAGE_SIZE);
+
+    if (kernel_buffer == nullptr)
+        return -ENOMEM;
+
+    while (done < count) {
+        uint32_t chunk = count - done;
+
+        if (chunk > PAGE_SIZE)
+            chunk = PAGE_SIZE;
+
+        int result = file_read(file, kernel_buffer, chunk);
+
+        if (result < 0 && done == 0) {
+            kfree(kernel_buffer);
+            return result;
+        }
+        if (result <= 0)
+            break;
+
+        memcpy(user_buffer + done, kernel_buffer, result);
+        done += result;
+
+        if ((uint32_t)result < chunk)
+            break;              // a short read: nothing more for now
+    }
+
+    kfree(kernel_buffer);
+    return (int)done;
 }
 
 int sys_write(Registers *r)
 {
     File *file = get_file((int)r->ebx);
+    const char *user_buffer = (const char *)r->ecx;
+    uint32_t count = r->edx;
+    uint32_t done = 0;
 
     if (file == nullptr)
         return -EBADF;
-    if (!user_range_valid((void *)r->ecx, r->edx, false))
+    if (!user_range_valid(user_buffer, count, false))
         return -EFAULT;
 
-    return file_write(file, (const void *)r->ecx, r->edx);
+    char *kernel_buffer = (char *)kmalloc(PAGE_SIZE);
+
+    if (kernel_buffer == nullptr)
+        return -ENOMEM;
+
+    while (done < count) {
+        uint32_t chunk = count - done;
+
+        if (chunk > PAGE_SIZE)
+            chunk = PAGE_SIZE;
+
+        memcpy(kernel_buffer, user_buffer + done, chunk);
+
+        int result = file_write(file, kernel_buffer, chunk);
+
+        if (result < 0 && done == 0) {
+            kfree(kernel_buffer);
+            return result;
+        }
+        if (result <= 0)
+            break;
+
+        done += result;
+    }
+
+    kfree(kernel_buffer);
+    return (int)done;
 }
 
 int sys_seek(Registers *r)
@@ -164,7 +227,18 @@ int sys_readdir(Registers *r)
     if (!user_range_valid(entry, sizeof(*entry), true))
         return -EFAULT;
 
-    return file->inode->readdir(&file->offset, entry);
+    struct dirent *kernel_entry = (struct dirent *)kmalloc(sizeof(struct dirent));
+
+    if (kernel_entry == nullptr)
+        return -ENOMEM;
+
+    int result = file->inode->readdir(&file->offset, kernel_entry);
+
+    if (result > 0)
+        memcpy(entry, kernel_entry, sizeof(*entry));
+
+    kfree(kernel_entry);
+    return result;
 }
 
 // Rewrites the path with every "." and ".." worked out, for getcwd().

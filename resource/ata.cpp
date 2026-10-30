@@ -104,7 +104,7 @@ int ata_read(uint32_t lba, uint32_t sectors, void *buffer)
     return result;
 }
 
-int ata_write(uint32_t lba, uint32_t sectors, const void *buffer)
+int ata_write(uint32_t lba, uint32_t sectors, const void *buffer, bool flush)
 {
     const uint8_t *source = (const uint8_t *)buffer;
     int result = 0;
@@ -120,7 +120,7 @@ int ata_write(uint32_t lba, uint32_t sectors, const void *buffer)
         }
     }
 
-    if (result == 0) {
+    if (result == 0 && flush) {
         send_command(lba, 0, COMMAND_FLUSH);
         wait_for_irq();
     }

@@ -49,6 +49,9 @@ int set_signal_handler(int signal_number, void (*handler)(int));
 int ignore_signal(int signal_number);
 int default_signal(int signal_number);
 int set_quota(int pid, int ticks_per_second);
+void *mmap(uint32_t size);
+int munmap(void *address);
+int meminfo(MemoryInfo *info);
 
 // Message queues
 int msgget(int key);

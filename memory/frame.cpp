@@ -16,6 +16,8 @@
 struct Frame {
     uint16_t refcount;
     uint16_t block_pages;  // size of an alloc_frames() block
+    uint32_t *owner_page_dir;  // set for a user page that can be swapped out
+    uint32_t owner_virt;
 };
 
 extern "C" char _kernel_end[];
@@ -164,8 +166,11 @@ void free_frame(uint32_t address)
         frame_table[index].refcount == 0)
         panic("free_frame: bad frame %x", address);
 
-    if (--frame_table[index].refcount == 0)
+    frame_table[index].refcount--;
+    if (frame_table[index].refcount == 0) {
+        frame_table[index].owner_page_dir = nullptr;
         mark_free(index);
+    }
 }
 
 void free_frames(uint32_t address)
@@ -184,6 +189,26 @@ void add_frame_user(uint32_t address)
 uint32_t frame_user_count(uint32_t address)
 {
     return frame_table[address / PAGE_SIZE].refcount;
+}
+
+void frame_set_owner(uint32_t address, uint32_t *page_dir, uint32_t virt)
+{
+    frame_table[address / PAGE_SIZE].owner_page_dir = page_dir;
+    frame_table[address / PAGE_SIZE].owner_virt = virt;
+}
+
+// Tells the Clock algorithm whose page is in this frame. Pages with more than one
+// user are shared, so they stay in RAM.
+bool frame_get_owner(uint32_t frame_number, uint32_t **page_dir, uint32_t *virt)
+{
+    Frame *frame = &frame_table[frame_number];
+
+    if (frame->owner_page_dir == nullptr || frame->refcount != 1)
+        return false;
+
+    *page_dir = frame->owner_page_dir;
+    *virt = frame->owner_virt;
+    return true;
 }
 
 uint32_t total_frames()

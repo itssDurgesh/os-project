@@ -46,6 +46,10 @@ int set_signal_handler(int signal_number, void (*handler)(int))
 int ignore_signal(int signal_number) { return sigaction_call(signal_number, SIG_IGN); }
 int default_signal(int signal_number) { return sigaction_call(signal_number, SIG_DFL); }
 
+void *mmap(uint32_t size) { return (void *)syscall3(SYS_MMAP, size, 0, 0); }
+int munmap(void *address) { return syscall3(SYS_MUNMAP, (uint32_t)address, 0, 0); }
+int meminfo(MemoryInfo *info) { return syscall3(SYS_MEMINFO, (uint32_t)info, 0, 0); }
+
 int msgget(int key) { return syscall3(SYS_MSGGET, key, 0, 0); }
 
 int msgsnd(int id, int type, const void *data, uint32_t size)

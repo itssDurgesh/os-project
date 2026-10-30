@@ -71,5 +71,8 @@ void syscall_init()
     syscall_table[SYS_RES_REQUEST] = sys_res_request;
     syscall_table[SYS_RES_RELEASE] = sys_res_release;
     syscall_table[SYS_SET_QUOTA] = sys_set_quota;
+    syscall_table[SYS_MMAP] = sys_mmap;
+    syscall_table[SYS_MUNMAP] = sys_munmap;
+    syscall_table[SYS_MEMINFO] = sys_meminfo;
     set_interrupt_handler(VECTOR_SYSCALL, syscall_interrupt);
 }

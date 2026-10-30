@@ -128,6 +128,11 @@ uint32_t block_disk_reads()
     return disk_reads;
 }
 
+uint32_t partition_first_sector(int partition)
+{
+    return partitions[partition].first_sector;
+}
+
 uint32_t partition_blocks(int partition)
 {
     return partitions[partition].sector_count / SECTORS_PER_BLOCK;

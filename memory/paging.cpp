@@ -78,6 +78,16 @@ uint32_t paging_lookup(const uint32_t *page_dir, uint32_t virt)
     return ((const uint32_t *)phys_to_virt(entry & PAGE_MASK))[PT_INDEX(virt)];
 }
 
+// Returns a pointer to the page table entry, or nullptr if there is no table yet.
+uint32_t *paging_get_entry(uint32_t *page_dir, uint32_t virt)
+{
+    uint32_t *table = get_page_table(page_dir, virt, 0, 0);
+
+    if (table == nullptr)
+        return nullptr;
+    return &table[PT_INDEX(virt)];
+}
+
 void paging_switch(uint32_t *page_dir)
 {
     write_cr3(virt_to_phys(page_dir));  // this also flushes the TLB
@@ -85,12 +95,24 @@ void paging_switch(uint32_t *page_dir)
 
 static void page_fault(Registers *r)
 {
+    uint32_t address = read_cr2();
+    bool from_user = r->cs & 3;
+    bool is_write = r->error_code & 2;
+    bool has_user_memory = address < KERNEL_VMA && current_process != nullptr &&
+                           current_process->page_dir != kernel_page_dir;
+
+    if (has_user_memory) {
+        // This can read the disk, which needs interrupts.
+        enable_interrupts();
+        if (handle_page_fault(address, is_write))
+            return;
+    }
+
     // A bad program only ends itself. A bad kernel can't be trusted to go on.
-    if (r->cs & 3)
+    if (from_user)
         process_fault(r, "segmentation fault");
 
-    kprintf("\npage fault at address %p, error %x\n", (void *)read_cr2(),
-            r->error_code);
+    kprintf("\npage fault at address %p, error %x\n", (void *)address, r->error_code);
     panic_with_registers(r, "page fault in kernel");
 }
 

@@ -189,7 +189,7 @@ int main()
     bool known = user_by_uid(getuid(), &user);
 
     printf("\nWelcome to the OS Project shell, %s.\n", known ? user.name : "user");
-    printf("Try: ls -l, cat, echo, mkdir, rm, wc, pwd, cd, ps, whoami, chmod, kill,\n");
+    printf("Try: ls -l, cat, echo, mkdir, rm, wc, pwd, cd, ps, whoami, chmod, kill, free,\n");
     printf("pipes like ls / | wc, and exit to log out.\n");
 
     for (;;) {

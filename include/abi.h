@@ -57,7 +57,9 @@
 
 #define SYS_SET_QUOTA   48
 
-#define SYSCALL_COUNT   49
+#define SYS_MEMINFO     49
+
+#define SYSCALL_COUNT   50
 
 #define MAX_FILE_NAME 255
 #define MAX_PATH      256
@@ -111,6 +113,15 @@ struct stat {
 #define RESOURCE_TYPES 3
 
 #define MAX_MESSAGE_SIZE 256
+
+struct MemoryInfo {
+    uint32_t total_frames;
+    uint32_t free_frames;
+    uint32_t swap_slots_total;
+    uint32_t swap_slots_used;
+    uint32_t page_faults;
+    uint32_t evicted_pages;
+};
 
 #define PROCESS_NAME_LENGTH 32
 

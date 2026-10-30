@@ -54,6 +54,9 @@ int sys_shmdt(Registers *r);
 // Memory Management: memory/sys_memory.c
 int sys_brk(Registers *r);
 int sys_sbrk(Registers *r);
+int sys_mmap(Registers *r);
+int sys_munmap(Registers *r);
+int sys_meminfo(Registers *r);
 
 // File Handling: fs/sys_file.c
 int sys_open(Registers *r);

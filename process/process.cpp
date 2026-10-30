@@ -10,7 +10,8 @@
 #include "vfs.h"
 
 #define USER_STACK_TOP   KERNEL_VMA
-#define USER_STACK_PAGES 32
+#define USER_STACK_PAGES 256  // 1 MB, loaded a page at a time
+#define STACK_PAGES_AT_START 3
 #define USER_EFLAGS      0x202  // interrupts on
 
 #define ELF_MAGIC  0x464C457F  // 0x7F 'E' 'L' 'F'
@@ -62,76 +63,31 @@ void process_init()
 {
 }
 
-// Maps fresh, zeroed pages over a range. Pages already mapped are left alone,
-// because two segments can share a page.
-static int map_range(uint32_t *page_dir, uint32_t start, uint32_t end, uint32_t flags)
+// Records one part of the program file. Nothing is read until a page is used.
+static int add_program_segment(MemoryArea *areas, Inode *inode,
+                               const struct elf_segment *segment)
 {
-    for (uint32_t virt = start & PAGE_MASK; virt < end; virt += PAGE_SIZE) {
-        uint32_t frame;
-
-        if (paging_lookup(page_dir, virt) & PTE_PRESENT)
-            continue;
-
-        frame = alloc_frame();
-        if (frame == 0)
-            return -ENOMEM;
-
-        memset(phys_to_virt(frame), 0, PAGE_SIZE);
-        if (paging_map(page_dir, virt, frame, flags) != 0) {
-            free_frame(frame);
-            return -ENOMEM;
-        }
-    }
-    return 0;
-}
-
-static int load_segment(uint32_t *page_dir, Inode *inode,
-                        const struct elf_segment *segment)
-{
-    uint32_t flags = PTE_USER |
-                     ((segment->flags & ELF_FLAG_WRITE) ? PTE_WRITABLE : 0);
+    uint32_t flags = PTE_USER;
     uint32_t end = segment->virt + segment->memory_size;
-    uint32_t done = 0;
-    uint8_t *chunk;
-    int status;
+    uint32_t start = segment->virt & PAGE_MASK;
+    uint32_t lead_in = segment->virt - start;   // bytes before the segment's start
+
+    if (segment->flags & ELF_FLAG_WRITE)
+        flags |= PTE_WRITABLE;
 
     if (end < segment->virt || end > USER_STACK_TOP ||
-        segment->file_size > segment->memory_size)
+        segment->file_size > segment->memory_size || lead_in > segment->offset)
         return -ENOEXEC;
 
-    status = map_range(page_dir, segment->virt, end, flags);
-    if (status != 0)
-        return status;
+    int area = add_memory_area(areas, start, round_up_to_page(end), flags, inode,
+                               segment->offset - lead_in,
+                               segment->file_size + lead_in);
 
-    chunk = (uint8_t *)kmalloc(PAGE_SIZE);
-    if (chunk == nullptr)
-        return -ENOMEM;
-
-    while (done < segment->file_size) {
-        uint32_t size = segment->file_size - done;
-
-        if (size > PAGE_SIZE)
-            size = PAGE_SIZE;
-
-        if (inode->read(chunk, segment->offset + done, size) != (int)size) {
-            kfree(chunk);
-            return -ENOEXEC;
-        }
-
-        status = write_to_page_directory(page_dir, segment->virt + done, chunk, size);
-        if (status != 0) {
-            kfree(chunk);
-            return status;
-        }
-        done += size;
-    }
-
-    kfree(chunk);
-    return 0;
+    return (area < 0) ? area : 0;
 }
 
-static int load_program(uint32_t *page_dir, Inode *inode, uint32_t *entry,
-                        uint32_t *heap_start)
+static int read_program_header(MemoryArea *areas, Inode *inode, uint32_t *entry,
+                               uint32_t *heap_start)
 {
     struct elf_header header;
     uint32_t top = 0;
@@ -154,7 +110,7 @@ static int load_program(uint32_t *page_dir, Inode *inode, uint32_t *entry,
         if (segment.type != ELF_SEGMENT_LOAD)
             continue;
 
-        status = load_segment(page_dir, inode, &segment);
+        status = add_program_segment(areas, inode, &segment);
         if (status != 0)
             return status;
 
@@ -174,11 +130,15 @@ static int build_user_stack(uint32_t *page_dir, char *const argv[], uint32_t *us
     uint32_t stack = USER_STACK_TOP;
     uint32_t pointers[MAX_ARGUMENTS + 1];
     uint32_t argc = 0;
-    int status = map_range(page_dir, USER_STACK_TOP - USER_STACK_PAGES * PAGE_SIZE,
-                           USER_STACK_TOP, PTE_USER | PTE_WRITABLE);
+    int status;
 
-    if (status != 0)
-        return status;
+    // The strings and pointers go in now, so these pages can't wait for a fault.
+    for (uint32_t page = 1; page <= STACK_PAGES_AT_START; page++) {
+        status = map_new_user_page(page_dir, USER_STACK_TOP - page * PAGE_SIZE,
+                                   PTE_USER | PTE_WRITABLE);
+        if (status != 0)
+            return status;
+    }
 
     while (argv[argc] != nullptr) {
         uint32_t length = strlen(argv[argc]) + 1;
@@ -229,6 +189,8 @@ int process_exec(const char *path, char *const argv[], Registers *r)
     uint32_t *page_dir;
     uint32_t *old_page_dir = current_process->page_dir;
     uint32_t entry, heap_start, user_esp;
+    MemoryArea new_areas[MAX_MEMORY_AREAS];
+    int heap_area = -1;
     int status = vfs_lookup(current_process->cwd, path, &inode);
 
     if (status != 0)
@@ -239,7 +201,8 @@ int process_exec(const char *path, char *const argv[], Registers *r)
         return -EACCES;
     }
 
-    status = vfs_check_permission(inode, current_process->uid, current_process->gid, PERMISSION_EXEC);
+    status = vfs_check_permission(inode, current_process->uid, current_process->gid,
+                                  PERMISSION_EXEC);
     if (status != 0) {
         release_inode(inode);
         return status;
@@ -251,11 +214,24 @@ int process_exec(const char *path, char *const argv[], Registers *r)
         return -ENOMEM;
     }
 
-    status = load_program(page_dir, inode, &entry, &heap_start);
-    release_inode(inode);
+    memset(new_areas, 0, sizeof(new_areas));
+
+    status = read_program_header(new_areas, inode, &entry, &heap_start);
+    release_inode(inode);       // the areas keep their own references
+
+    if (status == 0)
+        status = add_memory_area(new_areas, USER_STACK_TOP - USER_STACK_PAGES * PAGE_SIZE,
+                                 USER_STACK_TOP, PTE_USER | PTE_WRITABLE, nullptr, 0, 0);
+    if (status >= 0) {
+        heap_area = add_memory_area(new_areas, heap_start, heap_start,
+                                    PTE_USER | PTE_WRITABLE, nullptr, 0, 0);
+        status = (heap_area < 0) ? heap_area : 0;
+    }
     if (status == 0)
         status = build_user_stack(page_dir, argv, &user_esp);
+
     if (status != 0) {
+        release_memory_areas(new_areas);
         delete_page_directory(page_dir);
         return status;
     }
@@ -267,6 +243,11 @@ int process_exec(const char *path, char *const argv[], Registers *r)
         if (current_process->signal_handlers[i] != SIG_IGN)
             current_process->signal_handlers[i] = SIG_DFL;
     }
+
+    release_memory_areas(current_process->areas);
+    memcpy(current_process->areas, new_areas, sizeof(new_areas));
+    current_process->heap_area = heap_area;
+    current_process->next_mmap_address = 0;
 
     current_process->page_dir = page_dir;
     current_process->heap_end = heap_start;
@@ -323,6 +304,9 @@ int process_fork(const Registers *r)
     child->uid = current_process->uid;
     child->gid = current_process->gid;
     child->heap_end = current_process->heap_end;
+    child->heap_area = current_process->heap_area;
+    child->next_mmap_address = current_process->next_mmap_address;
+    copy_memory_areas(current_process->areas, child->areas);
     child->cpu_quota = current_process->cpu_quota;
     for (int i = 0; i < NUM_SIGNALS; i++)
         child->signal_handlers[i] = current_process->signal_handlers[i];
@@ -334,6 +318,7 @@ int process_fork(const Registers *r)
     if (child->page_dir == nullptr || child->files == nullptr) {
         if (child->page_dir != nullptr)
             delete_page_directory(child->page_dir);
+        release_memory_areas(child->areas);
         kfree(child->files);
         delete_process(child);
         return -ENOMEM;
@@ -376,6 +361,7 @@ void process_exit(int status)
 
     banker_process_exit(current_process);
     shared_memory_detach_all(current_process);
+    release_memory_areas(current_process->areas);
 
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {
         if (current_process->files[fd] != nullptr) {

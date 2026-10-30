@@ -4,6 +4,7 @@
 #include "kstring.h"
 #include "memory.h"
 #include "process.h"
+#include "storage.h"
 
 #define ENTRIES_PER_TABLE 1024
 #define KERNEL_PD_START   (KERNEL_VMA >> 22)  // entry 768
@@ -44,7 +45,7 @@ uint32_t *copy_page_directory(const uint32_t *parent)
             uint32_t virt = (directory << 22) | (index << 12);
             uint32_t frame;
 
-            if ((table[index] & PTE_PRESENT) == 0)
+            if (table[index] == 0)
                 continue;
 
             // Shared memory stays shared: the child gets the same frame.
@@ -59,15 +60,34 @@ uint32_t *copy_page_directory(const uint32_t *parent)
                 continue;
             }
 
-            frame = alloc_frame();
-            if (frame == 0 ||
-                paging_map(child, virt, frame, table[index] & FLAGS_MASK) != 0) {
-                if (frame != 0)
-                    free_frame(frame);
+            frame = get_user_frame();
+            if (frame == 0) {
                 delete_page_directory(child);
                 return nullptr;
             }
-            memcpy(phys_to_virt(frame), phys_to_virt(table[index] & PAGE_MASK), PAGE_SIZE);
+
+            // Getting a frame can sleep, and the swapper may have moved this
+            // page meanwhile, so the entry must be read after that.
+            uint32_t entry = table[index];
+            uint32_t flags;
+
+            if (entry & PTE_PRESENT) {
+                memcpy(phys_to_virt(frame), phys_to_virt(entry & PAGE_MASK), PAGE_SIZE);
+                flags = entry & FLAGS_MASK;
+            } else if (entry & PTE_SWAPPED) {
+                read_swapped_page(entry >> 12, frame);
+                flags = (entry & (PTE_WRITABLE | PTE_USER)) | PTE_DIRTY;
+            } else {
+                free_frame(frame);      // it was clean and got dropped
+                continue;
+            }
+
+            if (paging_map(child, virt, frame, flags) != 0) {
+                free_frame(frame);
+                delete_page_directory(child);
+                return nullptr;
+            }
+            frame_set_owner(frame, child, virt);
         }
     }
     return child;
@@ -86,6 +106,8 @@ void delete_page_directory(uint32_t *page_dir)
         for (uint32_t index = 0; index < ENTRIES_PER_TABLE; index++) {
             if (table[index] & PTE_PRESENT)
                 free_frame(table[index] & PAGE_MASK);
+            else if (table[index] & PTE_SWAPPED)
+                swap_free_slot(table[index] >> 12);
         }
         free_frame(page_dir[directory] & PAGE_MASK);
     }
@@ -126,7 +148,10 @@ bool user_range_valid(const void *address, uint32_t count, bool write)
         return false;
 
     for (uint32_t page = start & PAGE_MASK; page < start + count; page += PAGE_SIZE) {
-        if ((paging_lookup(current_process->page_dir, page) & required) != required)
+        // Pages load on first use, so a page that isn't here yet may still be
+        // fine. Bring it in now, while it's safe to sleep.
+        if ((paging_lookup(current_process->page_dir, page) & required) != required &&
+            !handle_page_fault(page, write))
             return false;
     }
     return true;

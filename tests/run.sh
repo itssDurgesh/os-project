@@ -155,6 +155,7 @@ keyboard_test
 shell_test shell tests/shell-commands.txt "shell-commands-done"
 SHELL_WAIT=3 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
 login_test
+SHELL_WAIT=70 shell_test swaptest tests/swaptest-commands.txt "TEST-PASS swaptest"
 SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"
 shell_test ctrl-c tests/ctrl-c-commands.txt "^after-ctrl-c"
 SHELL_WAIT=8 shell_test ipctest tests/ipctest-commands.txt "TEST-PASS ipctest"

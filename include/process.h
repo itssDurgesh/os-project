@@ -15,6 +15,8 @@ class Inode;
 #define NUM_PRIORITIES 4  // 0 = highest, 3 = lowest
 #define DEFAULT_PRIORITY 2
 
+#define MAX_ATTACHED_SEGMENTS 4
+
 #define TIME_QUANTUM_TICKS 2  // 2 ticks of 10 ms = 20 ms
 #define AGING_LIMIT_TICKS  100  // 1 second in a ready queue moves a process up
 
@@ -33,7 +35,8 @@ class WaitQueue {
 public:
     void add(Process *process);
     Process *remove_first();
-    void sleep();
+    void sleep(bool can_be_interrupted = false);
+    bool remove(Process *process);
     void wake_one();
     void wake_all();
     bool is_empty() const;
@@ -64,11 +67,31 @@ struct Process {
     uint32_t kernel_stack_top;
 
     uint32_t *page_dir;
-    uint32_t heap_end;  // current_process program break
+    uint32_t heap_end;  // the current top of the heap
 
     File **files;  // per-process file descriptor table
     Inode *cwd;
     char cwd_path[MAX_PATH];
+
+    // Signals
+    uint32_t pending_signals;  // one bit for each signal waiting to be delivered
+    uint32_t signal_handlers[NUM_SIGNALS];
+    uint32_t signal_return_address;
+    WaitQueue *sleeping_in;  // the queue it is asleep in, if any
+    bool can_be_interrupted;  // can a signal wake it up?
+
+    // Shared memory: segment id + 1, or 0 for an empty slot
+    int attached_segments[MAX_ATTACHED_SEGMENTS];
+
+    // Banker's Algorithm
+    bool banker_declared;
+    bool banker_finished;
+    int banker_maximum[RESOURCE_TYPES];
+    int banker_allocated[RESOURCE_TYPES];
+
+    // CPU quota: the most ticks allowed each second. 0 means no limit.
+    uint32_t cpu_quota;
+    uint32_t ticks_this_second;
 
     void (*entry)(void *);
     void *argument;
@@ -100,6 +123,8 @@ void delete_process(Process *process);
 void kernel_stack_alloc(Process *process);
 void add_new_process(Process *process);
 Process *process_list();
+Process *find_process(int pid);
+void wake_process_for_signal(Process *process);
 
 // User processes
 void process_init();
@@ -109,5 +134,16 @@ int process_fork(const Registers *r);
 void process_exit(int status) __attribute__((noreturn));
 int process_wait(int *status);
 void process_fault(const Registers *r, const char *reason) __attribute__((noreturn));
+
+// Signals
+bool signal_pending();
+int send_signal(Process *target, int signal_number);
+void send_signal_to_all_programs(int signal_number);
+void deliver_signals(Registers *r);
+
+// Shared memory and Banker's Algorithm clean-up
+void shared_memory_detach_all(Process *process);
+void shared_memory_copy_to_child(Process *parent, Process *child);
+void banker_process_exit(Process *process);
 
 #endif

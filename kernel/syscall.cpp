@@ -54,5 +54,22 @@ void syscall_init()
     syscall_table[SYS_SET_ECHO] = sys_set_echo;
     syscall_table[SYS_PROCINFO] = sys_procinfo;
     syscall_table[SYS_CHMOD] = sys_chmod;
+    syscall_table[SYS_KILL] = sys_kill;
+    syscall_table[SYS_SIGACTION] = sys_sigaction;
+    syscall_table[SYS_SIGRETURN] = sys_sigreturn;
+    syscall_table[SYS_MSGGET] = sys_msgget;
+    syscall_table[SYS_MSGSND] = sys_msgsnd;
+    syscall_table[SYS_MSGRCV] = sys_msgrcv;
+    syscall_table[SYS_SHMGET] = sys_shmget;
+    syscall_table[SYS_SHMAT] = sys_shmat;
+    syscall_table[SYS_SHMDT] = sys_shmdt;
+    syscall_table[SYS_SEM_OPEN] = sys_sem_open;
+    syscall_table[SYS_SEM_WAIT] = sys_sem_wait;
+    syscall_table[SYS_SEM_POST] = sys_sem_post;
+    syscall_table[SYS_SEM_CLOSE] = sys_sem_close;
+    syscall_table[SYS_RES_DECLARE] = sys_res_declare;
+    syscall_table[SYS_RES_REQUEST] = sys_res_request;
+    syscall_table[SYS_RES_RELEASE] = sys_res_release;
+    syscall_table[SYS_SET_QUOTA] = sys_set_quota;
     set_interrupt_handler(VECTOR_SYSCALL, syscall_interrupt);
 }

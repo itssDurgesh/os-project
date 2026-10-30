@@ -14,4 +14,10 @@ _start:
     push eax
     call exit
 
+; A signal handler returns here, so the kernel can put the program back.
+global signal_return_stub
+signal_return_stub:
+    mov eax, 9                      ; SYS_SIGRETURN
+    int 0x80
+
 section .note.GNU-stack noalloc noexec nowrite progbits

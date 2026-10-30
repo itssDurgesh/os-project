@@ -1,6 +1,6 @@
 // ext2 filesystem driver. It follows the real on-disk format, so Linux tools
 // can build the disk image and e2fsck can check our writes.
-// One Mutex covers the whole filesystem. Each operation in ext2_ops takes it on
+// One Mutex covers the whole filesystem. Each Ext2Inode function takes it on
 // entry, and the static helpers assume it's already held.
 
 #include <stddef.h>

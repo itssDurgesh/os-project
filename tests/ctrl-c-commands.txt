@@ -1,0 +1,5 @@
+root
+root
+sleep 20
+CTRL-C
+echo after-ctrl-c

@@ -17,6 +17,64 @@ static inline int syscall3(int number, uint32_t a, uint32_t b, uint32_t c)
     return result;
 }
 
+static inline int syscall4(int number, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+{
+    int result;
+
+    __asm__ volatile ("int $0x80"
+                      : "=a"(result)
+                      : "a"(number), "b"(a), "c"(b), "d"(c), "S"(d)
+                      : "memory");
+    return result;
+}
+
+extern "C" void signal_return_stub();
+
+int kill(int pid, int signal_number) { return syscall3(SYS_KILL, pid, signal_number, 0); }
+int set_quota(int pid, int ticks_per_second) { return syscall3(SYS_SET_QUOTA, pid, ticks_per_second, 0); }
+
+static int sigaction_call(int signal_number, uint32_t handler)
+{
+    return syscall3(SYS_SIGACTION, signal_number, handler, (uint32_t)signal_return_stub);
+}
+
+int set_signal_handler(int signal_number, void (*handler)(int))
+{
+    return sigaction_call(signal_number, (uint32_t)handler);
+}
+
+int ignore_signal(int signal_number) { return sigaction_call(signal_number, SIG_IGN); }
+int default_signal(int signal_number) { return sigaction_call(signal_number, SIG_DFL); }
+
+int msgget(int key) { return syscall3(SYS_MSGGET, key, 0, 0); }
+
+int msgsnd(int id, int type, const void *data, uint32_t size)
+{
+    return syscall4(SYS_MSGSND, id, type, (uint32_t)data, size);
+}
+
+int msgrcv(int id, int type, void *data, uint32_t max_size)
+{
+    return syscall4(SYS_MSGRCV, id, type, (uint32_t)data, max_size);
+}
+
+int shmget(int key, uint32_t size) { return syscall3(SYS_SHMGET, key, size, 0); }
+void *shmat(int id) { return (void *)syscall3(SYS_SHMAT, id, 0, 0); }
+int shmdt(void *address) { return syscall3(SYS_SHMDT, (uint32_t)address, 0, 0); }
+
+int sem_open(int key, int starting_value) { return syscall3(SYS_SEM_OPEN, key, starting_value, 0); }
+int sem_wait(int id) { return syscall3(SYS_SEM_WAIT, id, 0, 0); }
+int sem_post(int id) { return syscall3(SYS_SEM_POST, id, 0, 0); }
+int sem_close(int id) { return syscall3(SYS_SEM_CLOSE, id, 0, 0); }
+
+int res_declare(const int maximum[RESOURCE_TYPES])
+{
+    return syscall3(SYS_RES_DECLARE, (uint32_t)maximum, 0, 0);
+}
+
+int res_request(int type, int amount) { return syscall3(SYS_RES_REQUEST, type, amount, 0); }
+int res_release(int type, int amount) { return syscall3(SYS_RES_RELEASE, type, amount, 0); }
+
 int fork() { return syscall3(SYS_FORK, 0, 0, 0); }
 int getpid() { return syscall3(SYS_GETPID, 0, 0, 0); }
 int getuid() { return syscall3(SYS_GETUID, 0, 0, 0); }
@@ -319,6 +377,9 @@ const char *error_text(int error)
     case ENOEXEC:   return "not a valid program";
     case EBADF:     return "bad file descriptor";
     case EINVAL:    return "invalid argument";
+    case EPERM:     return "operation not allowed";
+    case ESRCH:     return "no such process";
+    case EINTR:     return "interrupted";
     default:        return "error";
     }
 }

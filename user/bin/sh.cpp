@@ -139,6 +139,8 @@ static void run_pipeline(int count)
         }
 
         if (pid == 0) {
+            default_signal(SIGINT);     // Ctrl+C should stop this program
+
             if (previous_read >= 0) {
                 dup2(previous_read, STDIN);
                 close(previous_read);

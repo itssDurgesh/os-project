@@ -30,17 +30,23 @@ void console_set_echo(bool enabled)
     echo_enabled = enabled;
 }
 
-// Reads a whole line, with echo and backspace. Returns false on Ctrl+D.
-static bool read_line()
+// Reads a whole line, with echo and backspace. Returns 1 for a line, 0 for
+// Ctrl+D, or -EINTR if a signal arrived.
+static int read_line()
 {
     line_length = 0;
     line_position = 0;
 
     for (;;) {
-        char c = input_get_char();
+        char c;
+
+        if (!input_get_char(&c)) {
+            line_length = 0;
+            return -EINTR;
+        }
 
         if (c == KEY_END_OF_FILE && line_length == 0)
-            return false;
+            return 0;
 
         if (c == KEY_BACKSPACE || c == KEY_DELETE) {
             if (line_length > 0) {
@@ -62,7 +68,7 @@ static bool read_line()
         }
 
         if (c == '\n')
-            return true;
+            return 1;
     }
 }
 
@@ -78,8 +84,12 @@ int ConsoleDevice::read(void *buffer, uint32_t, uint32_t count)
     char *output = (char *)buffer;
     uint32_t done = 0;
 
-    if (line_position == line_length && !read_line())
-        return 0;
+    if (line_position == line_length) {
+        int status = read_line();
+
+        if (status <= 0)
+            return status;
+    }
 
     while (done < count && line_position < line_length) {
         output[done] = line[line_position];
@@ -115,7 +125,8 @@ int RawInputDevice::read(void *buffer, uint32_t, uint32_t count)
     if (count == 0)
         return 0;
 
-    *(char *)buffer = input_get_char();
+    if (!input_get_char((char *)buffer))
+        return -EINTR;
     return 1;
 }
 

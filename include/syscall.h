@@ -23,6 +23,33 @@ int sys_pipe(Registers *r);
 int sys_setuid(Registers *r);
 int sys_setgid(Registers *r);
 int sys_procinfo(Registers *r);
+int sys_set_quota(Registers *r);
+
+// Signals: process/signal.cpp
+int sys_kill(Registers *r);
+int sys_sigaction(Registers *r);
+int sys_sigreturn(Registers *r);
+
+// Message queues: process/message_queue.cpp
+int sys_msgget(Registers *r);
+int sys_msgsnd(Registers *r);
+int sys_msgrcv(Registers *r);
+
+// Semaphores: resource/user_semaphore.cpp
+int sys_sem_open(Registers *r);
+int sys_sem_wait(Registers *r);
+int sys_sem_post(Registers *r);
+int sys_sem_close(Registers *r);
+
+// Banker's Algorithm: resource/banker.cpp
+int sys_res_declare(Registers *r);
+int sys_res_request(Registers *r);
+int sys_res_release(Registers *r);
+
+// Shared memory: memory/shared_memory.cpp
+int sys_shmget(Registers *r);
+int sys_shmat(Registers *r);
+int sys_shmdt(Registers *r);
 
 // Memory Management: memory/sys_memory.c
 int sys_brk(Registers *r);

@@ -23,6 +23,7 @@ struct multiboot_info;
 #define PTE_PRESENT  0x1u
 #define PTE_WRITABLE 0x2u
 #define PTE_USER     0x4u
+#define PTE_SHARED   0x200u  // our own flag: fork must share this page, not copy it
 
 // Physical frames. Addresses are physical, and 0 means out of memory.
 void frame_init(const struct multiboot_info *mbi);

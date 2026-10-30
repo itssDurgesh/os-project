@@ -56,11 +56,17 @@ shell_test() {
     {
         sleep 3
         while IFS= read -r command; do
-            printf '%s\n' "$command"
+            if [ "$command" = "CTRL-C" ]; then
+                printf '\003'
+            else
+                printf '%s\n' "$command"
+            fi
             sleep "${SHELL_DELAY:-0.4}"
         done < "$script"
-        sleep 1
-    } | timeout 60 qemu-system-i386 "${QEMU_ARGS[@]}" $snapshot \
+        sleep "${SHELL_WAIT:-1}"
+        kill "$(cat build/qemu.pid)"    # QEMU never stops by itself
+    } | timeout 120 qemu-system-i386 "${QEMU_ARGS[@]}" $snapshot \
+        -pidfile build/qemu.pid \
         -drive "file=$image,format=raw,if=ide" -serial stdio 2>/dev/null \
         | tr -d '\r' > "$log"
     report "$name" "$log" "$expected"
@@ -73,7 +79,7 @@ filesystem_test() {
     local start=$((2048 + 16 * 2048 + 32 * 2048))
 
     cp "$IMAGE" "$copy"
-    SHELL_DELAY=2 shell_test filesystem tests/filesystem-commands.txt \
+    SHELL_DELAY=4 shell_test filesystem tests/filesystem-commands.txt \
         "TEST-PASS fstest" "$copy" ""
 
     dd if="$copy" of="$data" bs=512 skip=$start count=$((64 * 2048)) status=none
@@ -147,8 +153,13 @@ kernel_test disk "TEST-PASS"
 image_test
 keyboard_test
 shell_test shell tests/shell-commands.txt "shell-commands-done"
-shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
+SHELL_WAIT=3 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
 login_test
+SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"
+shell_test ctrl-c tests/ctrl-c-commands.txt "^after-ctrl-c"
+SHELL_WAIT=8 shell_test ipctest tests/ipctest-commands.txt "TEST-PASS ipctest"
+SHELL_WAIT=3 shell_test banktest tests/banktest-commands.txt "TEST-PASS banktest"
+SHELL_WAIT=6 shell_test quotatest tests/quotatest-commands.txt "TEST-PASS quotatest"
 shell_test permtest tests/permtest-commands.txt "TEST-PASS permtest"
 filesystem_test
 

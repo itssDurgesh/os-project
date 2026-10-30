@@ -44,6 +44,32 @@ int setgid(int gid);
 int set_echo(bool enabled);
 int procinfo(int index, struct procinfo *info);
 int chmod(const char *path, int mode);
+int kill(int pid, int signal_number);
+int set_signal_handler(int signal_number, void (*handler)(int));
+int ignore_signal(int signal_number);
+int default_signal(int signal_number);
+int set_quota(int pid, int ticks_per_second);
+
+// Message queues
+int msgget(int key);
+int msgsnd(int id, int type, const void *data, uint32_t size);
+int msgrcv(int id, int type, void *data, uint32_t max_size);
+
+// Shared memory
+int shmget(int key, uint32_t size);
+void *shmat(int id);
+int shmdt(void *address);
+
+// Semaphores
+int sem_open(int key, int starting_value);
+int sem_wait(int id);
+int sem_post(int id);
+int sem_close(int id);
+
+// Banker's Algorithm
+int res_declare(const int maximum[RESOURCE_TYPES]);
+int res_request(int type, int amount);
+int res_release(int type, int amount);
 
 // Strings and memory
 size_t strlen(const char *text);

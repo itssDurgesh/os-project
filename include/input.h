@@ -8,7 +8,7 @@ void keyboard_init();
 // Called from interrupt handlers when a key arrives.
 void input_put_char(char c);
 
-// Sleeps until a character is available.
-char input_get_char();
+// Sleeps until a character is available. Returns false if a signal woke it.
+bool input_get_char(char *result);
 
 #endif

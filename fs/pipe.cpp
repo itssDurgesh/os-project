@@ -54,7 +54,9 @@ int PipeReader::read(void *buffer, uint32_t count)
     while (pipe->count == 0) {
         if (pipe->writers == 0)
             return 0;           // end of file: all the write ends have closed
-        pipe->can_read.sleep();
+        pipe->can_read.sleep(true);
+        if (signal_pending())
+            return -EINTR;
     }
 
     while (done < count && pipe->count > 0) {
@@ -89,7 +91,12 @@ int PipeWriter::write(const void *buffer, uint32_t count)
 
         if (pipe->count == PIPE_SIZE) {
             pipe->can_read.wake_all();
-            pipe->can_write.sleep();
+            pipe->can_write.sleep(true);
+            if (signal_pending()) {
+                if (done > 0)
+                    return (int)done;
+                return -EINTR;
+            }
             continue;
         }
 

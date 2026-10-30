@@ -7,6 +7,9 @@ int main()
 {
     char *argv[] = { (char *)"/bin/login", nullptr };
 
+    ignore_signal(SIGINT);
+    ignore_signal(SIGTERM);
+
     // These become FDs 0, 1 and 2, which every other program inherits.
     open("/dev/console", O_RDWR);
     open("/dev/console", O_RDWR);
@@ -16,6 +19,7 @@ int main()
         int pid = fork();
 
         if (pid == 0) {
+            default_signal(SIGTERM);    // only init itself should ignore this
             exec(argv[0], argv);
             printf("init: can't start login\n");
             exit(1);

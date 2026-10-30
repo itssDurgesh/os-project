@@ -159,6 +159,20 @@ int sys_procinfo(Registers *r)
 int sys_sleep(Registers *r)
 {
     thread_sleep(r->ebx / MS_PER_TICK);
+    return signal_pending() ? -EINTR : 0;
+}
+
+// Limits a process to this many timer ticks each second. 0 removes the limit.
+int sys_set_quota(Registers *r)
+{
+    Process *target = find_process((int)r->ebx);
+
+    if (current_process->uid != 0)
+        return -EPERM;
+    if (target == nullptr)
+        return -ESRCH;
+
+    target->cpu_quota = r->ecx;
     return 0;
 }
 

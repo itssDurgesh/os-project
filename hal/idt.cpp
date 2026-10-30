@@ -77,6 +77,8 @@ extern "C" void handle_interrupt(Registers *r)
 
     // The kernel isn't preempted, so a switch only happens on the way back
     // to user mode.
-    if (r->cs & 3)
+    if (r->cs & 3) {
         switch_process_if_needed();
+        deliver_signals(r);
+    }
 }

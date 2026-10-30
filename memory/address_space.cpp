@@ -47,6 +47,18 @@ uint32_t *copy_page_directory(const uint32_t *parent)
             if ((table[index] & PTE_PRESENT) == 0)
                 continue;
 
+            // Shared memory stays shared: the child gets the same frame.
+            if (table[index] & PTE_SHARED) {
+                frame = table[index] & PAGE_MASK;
+                add_frame_user(frame);
+                if (paging_map(child, virt, frame, table[index] & FLAGS_MASK) != 0) {
+                    free_frame(frame);
+                    delete_page_directory(child);
+                    return nullptr;
+                }
+                continue;
+            }
+
             frame = alloc_frame();
             if (frame == 0 ||
                 paging_map(child, virt, frame, table[index] & FLAGS_MASK) != 0) {

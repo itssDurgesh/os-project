@@ -22,6 +22,7 @@ Process *current_process;
 
 static WaitQueue ready_queues[NUM_PRIORITIES];
 static WaitQueue sleeping;  // threads inside thread_sleep()
+static WaitQueue over_quota;  // processes that used up their CPU quota
 static WaitQueue exited;  // threads waiting in thread_join()
 static SlabCache pcb_cache;
 static Process *idle_process;
@@ -57,6 +58,7 @@ Process *WaitQueue::remove_first()
 
 static void make_ready(Process *process)
 {
+    process->sleeping_in = nullptr;
     process->state = PROCESS_READY;
     process->ready_since = get_ticks();
     ready_queues[process->priority].add(process);
@@ -149,7 +151,19 @@ void scheduler_tick()
         return;
 
     current_process->cpu_ticks++;
+    current_process->ticks_this_second++;
     wake_sleepers(now);
+
+    if (now % TIMER_HZ == 0) {
+        for (Process *process = all_processes; process != nullptr;
+             process = process->list_next)
+            process->ticks_this_second = 0;
+        over_quota.wake_all();
+    }
+
+    if (current_process->cpu_quota != 0 &&
+        current_process->ticks_this_second >= current_process->cpu_quota)
+        need_resched = true;
 
     if (now % AGING_CHECK_TICKS == 0)
         age_ready_queues(now);
@@ -163,6 +177,11 @@ void scheduler_tick()
 
 void switch_process_if_needed()
 {
+    // A process over its CPU quota waits for the next second.
+    while (current_process->cpu_quota != 0 &&
+           current_process->ticks_this_second >= current_process->cpu_quota)
+        over_quota.sleep();
+
     if (need_resched)
         schedule();
 }
@@ -245,6 +264,24 @@ Process *process_list()
     return all_processes;
 }
 
+Process *find_process(int pid)
+{
+    for (Process *process = all_processes; process != nullptr;
+         process = process->list_next) {
+        if (process->pid == pid)
+            return process;
+    }
+    return nullptr;
+}
+
+// A signal arrived, so stop waiting. The sleeper sees signal_pending() and gives up.
+void wake_process_for_signal(Process *process)
+{
+    if (process->state == PROCESS_WAITING && process->can_be_interrupted &&
+        process->sleeping_in != nullptr && process->sleeping_in->remove(process))
+        make_ready(process);
+}
+
 // The first code a new thread runs. schedule() left interrupts off.
 static void thread_start()
 {
@@ -313,8 +350,15 @@ void thread_sleep(uint32_t ticks)
 {
     uint32_t flags = turn_off_interrupts();
 
+    if (signal_pending()) {
+        restore_interrupts(flags);
+        return;
+    }
+
     current_process->wake_tick = get_ticks() + ticks;
     current_process->state = PROCESS_WAITING;
+    current_process->can_be_interrupted = true;
+    current_process->sleeping_in = &sleeping;
     sleeping.add(current_process);
     schedule();
 
@@ -323,15 +367,46 @@ void thread_sleep(uint32_t ticks)
 
 // Wait queues
 
-void WaitQueue::sleep()
+void WaitQueue::sleep(bool can_be_interrupted)
 {
     uint32_t flags = turn_off_interrupts();
 
+    // A signal that already arrived must not be slept through.
+    if (can_be_interrupted && signal_pending()) {
+        restore_interrupts(flags);
+        return;
+    }
+
     current_process->state = PROCESS_WAITING;
+    current_process->can_be_interrupted = can_be_interrupted;
+    current_process->sleeping_in = this;
     add(current_process);
     schedule();
 
     restore_interrupts(flags);
+}
+
+// Takes one process out of the middle of the line.
+bool WaitQueue::remove(Process *process)
+{
+    Process *previous = nullptr;
+
+    for (Process *item = head; item != nullptr; item = item->queue_next) {
+        if (item == process) {
+            if (previous != nullptr)
+                previous->queue_next = item->queue_next;
+            else
+                head = item->queue_next;
+
+            if (tail == item)
+                tail = previous;
+
+            item->queue_next = nullptr;
+            return true;
+        }
+        previous = item;
+    }
+    return false;
 }
 
 void WaitQueue::wake_one()

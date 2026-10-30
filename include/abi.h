@@ -55,7 +55,9 @@
 #define SYS_PROCINFO    46
 #define SYS_CHMOD       47
 
-#define SYSCALL_COUNT   48
+#define SYS_SET_QUOTA   48
+
+#define SYSCALL_COUNT   49
 
 #define MAX_FILE_NAME 255
 #define MAX_PATH      256
@@ -92,6 +94,23 @@ struct stat {
     uint32_t links;
     uint32_t size;
 };
+
+#define SIGINT  2       // Ctrl+C
+#define SIGKILL 9       // can not be caught or ignored
+#define SIGUSR1 10      // free for programs to use
+#define SIGTERM 15      // please stop
+#define SIGCHLD 17      // a child process finished
+#define NUM_SIGNALS 32
+
+#define SIG_DFL 0       // use the default action
+#define SIG_IGN 1       // ignore the signal
+
+#define RESOURCE_PIPE 0
+#define RESOURCE_MESSAGE_QUEUE 1
+#define RESOURCE_SHARED_MEMORY 2
+#define RESOURCE_TYPES 3
+
+#define MAX_MESSAGE_SIZE 256
 
 #define PROCESS_NAME_LENGTH 32
 

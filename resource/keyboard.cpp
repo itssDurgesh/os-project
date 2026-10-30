@@ -16,6 +16,7 @@
 #define SCANCODE_EXTENDED    0xE0
 
 #define QUEUE_SIZE 256
+#define KEY_CTRL_C 3
 
 // Scancode set 1, US layout. 0 means the key has no character.
 static const char normal_keys[128] = {
@@ -45,6 +46,11 @@ static bool extended_key;
 
 void input_put_char(char c)
 {
+    if (c == KEY_CTRL_C) {
+        send_signal_to_all_programs(SIGINT);
+        return;
+    }
+
     if (queue_count == QUEUE_SIZE)
         return;  // nobody is reading, so drop the key
 
@@ -53,20 +59,24 @@ void input_put_char(char c)
     readers.wake_all();
 }
 
-char input_get_char()
+bool input_get_char(char *result)
 {
     uint32_t flags = turn_off_interrupts();
-    char c;
 
-    while (queue_count == 0)
-        readers.sleep();
+    while (queue_count == 0) {
+        readers.sleep(true);
+        if (signal_pending()) {
+            restore_interrupts(flags);
+            return false;
+        }
+    }
 
-    c = queue[queue_head];
+    *result = queue[queue_head];
     queue_head = (queue_head + 1) % QUEUE_SIZE;
     queue_count = queue_count - 1;
 
     restore_interrupts(flags);
-    return c;
+    return true;
 }
 
 static void keyboard_interrupt(Registers *r)

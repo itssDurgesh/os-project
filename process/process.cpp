@@ -260,6 +260,14 @@ int process_exec(const char *path, char *const argv[], Registers *r)
         return status;
     }
 
+    // The old program's memory is going away, so nothing stays attached to it.
+    // Handlers go too, but signals being ignored stay ignored, as in Unix.
+    shared_memory_detach_all(current_process);
+    for (int i = 0; i < NUM_SIGNALS; i++) {
+        if (current_process->signal_handlers[i] != SIG_IGN)
+            current_process->signal_handlers[i] = SIG_DFL;
+    }
+
     current_process->page_dir = page_dir;
     current_process->heap_end = heap_start;
     paging_switch(page_dir);
@@ -315,6 +323,11 @@ int process_fork(const Registers *r)
     child->uid = current_process->uid;
     child->gid = current_process->gid;
     child->heap_end = current_process->heap_end;
+    child->cpu_quota = current_process->cpu_quota;
+    for (int i = 0; i < NUM_SIGNALS; i++)
+        child->signal_handlers[i] = current_process->signal_handlers[i];
+    child->signal_return_address = current_process->signal_return_address;
+    shared_memory_copy_to_child(current_process, child);
     child->page_dir = copy_page_directory(current_process->page_dir);
     child->files = (File **)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(File *));
 
@@ -361,6 +374,9 @@ void process_exit(int status)
 
     enable_interrupts();
 
+    banker_process_exit(current_process);
+    shared_memory_detach_all(current_process);
+
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {
         if (current_process->files[fd] != nullptr) {
             file_close(current_process->files[fd]);
@@ -383,6 +399,11 @@ void process_exit(int status)
         if (process->parent_pid == current_process->pid)
             process->parent_pid = INIT_PID;
     }
+
+    Process *parent = find_process(current_process->parent_pid);
+
+    if (parent != nullptr)
+        send_signal(parent, SIGCHLD);
 
     child_exited.wake_all();
     thread_exit(status);
@@ -411,7 +432,9 @@ int process_wait(int *status)
         if (!has_children)
             return -ECHILD;
 
-        child_exited.sleep();
+        child_exited.sleep(true);
+        if (signal_pending())
+            return -EINTR;
     }
 }
 

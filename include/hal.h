@@ -42,6 +42,18 @@ static inline uint8_t inb(uint16_t port)
     return value;
 }
 
+static inline void outl(uint16_t port, uint32_t value)
+{
+    __asm__ volatile ("outl %0, %1" : : "a"(value), "Nd"(port));
+}
+
+static inline uint32_t inl(uint16_t port)
+{
+    uint32_t value;
+    __asm__ volatile ("inl %1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+
 // Reads or writes `count` 16-bit words through one port, for the disk.
 static inline void insw(uint16_t port, void *buffer, uint32_t count)
 {
@@ -104,6 +116,17 @@ void pic_eoi(uint8_t irq);
 // Timer
 void timer_init(uint32_t hz);
 uint32_t get_ticks();
+
+// PCI
+struct PciLocation {
+    uint8_t bus;
+    uint8_t device;
+    uint8_t function;
+};
+
+uint32_t pci_read(const PciLocation *where, uint8_t offset);
+void pci_write(const PciLocation *where, uint8_t offset, uint32_t value);
+bool pci_find_device(uint8_t class_code, uint8_t subclass, PciLocation *result);
 
 // Serial port
 void serial_init();

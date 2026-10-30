@@ -18,7 +18,7 @@ Then, in this folder:
 | --- | --- |
 | `make` | Builds the kernel, the programs and the disk image |
 | `make run` | Starts the OS in a QEMU window |
-| `make test` | Runs all the automatic tests (takes about 4 minutes) |
+| `make test` | Runs all the automatic tests (takes about 5 minutes) |
 | `make dist` | Makes `build/os-demo.zip` for Windows laptops |
 | `make clean` | Deletes everything that was built |
 
@@ -33,6 +33,8 @@ These are demo passwords for the assignment. Type `exit` to log out.
 
 Commands: `ls`, `ls -l`, `cat`, `echo`, `mkdir`, `rm`, `rmdir`, `wc`, `pwd`, `cd`,
 `whoami`, `chmod`, `ps`, `kill`, `sleep`, `free`, and `exit`.
+
+Try `cat /proc/meminfo` and `cat /proc/processes`. Files in `/tmp` live in RAM.
 
 The shell also has pipes (`ls / | wc`) and redirection (`echo hi > a.txt`,
 `cat < a.txt`, `echo more >> a.txt`). Ctrl+C stops the running program.

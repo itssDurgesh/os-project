@@ -70,7 +70,7 @@ ROOTFS  := $(BUILD)/rootfs
 $(ROOTFS).stamp: $(shell find rootfs -type f 2>/dev/null) tools/mkbigfile.py \
                  tools/mkusers.py $(USER_BINS)
 	rm -rf $(ROOTFS)
-	mkdir -p $(ROOTFS)/bin $(ROOTFS)/sbin $(ROOTFS)/dev $(ROOTFS)/home/student $(ROOTFS)/tmp
+	mkdir -p $(ROOTFS)/bin $(ROOTFS)/sbin $(ROOTFS)/dev $(ROOTFS)/proc $(ROOTFS)/home/student $(ROOTFS)/tmp
 	chmod 777 $(ROOTFS)/tmp
 	cp -r rootfs/. $(ROOTFS)/
 	cp $(USER_BINS) $(ROOTFS)/bin/

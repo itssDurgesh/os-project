@@ -309,6 +309,16 @@ void copy_memory_areas(const MemoryArea *from, MemoryArea *to)
     }
 }
 
+void get_memory_info(MemoryInfo *info)
+{
+    info->total_frames = total_frames();
+    info->free_frames = free_frame_count();
+    info->swap_slots_total = partition_blocks(PARTITION_SWAP);
+    info->swap_slots_used = swap_used_slots();
+    info->page_faults = page_fault_count;
+    info->evicted_pages = evicted_page_count;
+}
+
 // Reports memory use, for the `free` command.
 int sys_meminfo(Registers *r)
 {
@@ -318,13 +328,7 @@ int sys_meminfo(Registers *r)
     if (!user_range_valid(output, sizeof(*output), true))
         return -EFAULT;
 
-    info.total_frames = total_frames();
-    info.free_frames = free_frame_count();
-    info.swap_slots_total = partition_blocks(PARTITION_SWAP);
-    info.swap_slots_used = swap_used_slots();
-    info.page_faults = page_fault_count;
-    info.evicted_pages = evicted_page_count;
-
+    get_memory_info(&info);
     memcpy(output, &info, sizeof(info));
     return 0;
 }

@@ -18,7 +18,7 @@
 #define DEVFS_MODE  0755
 
 #define LINE_LENGTH 256
-#define DEVICE_COUNT 3
+#define DEVICE_COUNT 4
 
 static char line[LINE_LENGTH];
 static uint32_t line_length;
@@ -162,6 +162,34 @@ int NullDevice::truncate()
     return 0;
 }
 
+// Each read gives one MouseEvent. Programs can't write to the mouse.
+class MouseDevice : public Inode {
+public:
+    int read(void *buffer, uint32_t offset, uint32_t count) override;
+    int write(const void *buffer, uint32_t offset, uint32_t count) override;
+    int truncate() override;
+};
+
+int MouseDevice::read(void *buffer, uint32_t, uint32_t count)
+{
+    if (count < sizeof(MouseEvent))
+        return -EINVAL;
+
+    if (!mouse_get_event((MouseEvent *)buffer))
+        return -EINTR;
+    return sizeof(MouseEvent);
+}
+
+int MouseDevice::write(const void *, uint32_t, uint32_t)
+{
+    return -EINVAL;
+}
+
+int MouseDevice::truncate()
+{
+    return 0;
+}
+
 struct DeviceEntry {
     const char *name;
     Inode *inode;
@@ -229,6 +257,7 @@ Inode *devfs_mount()
     add_device(0, "console", new ConsoleDevice());
     add_device(1, "input", new RawInputDevice());
     add_device(2, "null", new NullDevice());
+    add_device(3, "mouse", new MouseDevice());
 
     folder->number = 100;
     folder->type = INODE_DIRECTORY;

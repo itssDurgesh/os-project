@@ -1,0 +1,6 @@
+root
+root
+tmptest
+cat /proc/meminfo
+cat /proc/uptime
+cat /proc/processes

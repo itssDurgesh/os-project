@@ -30,6 +30,7 @@ static void kernel_thread(void *argument)
 
     // Step 6: Device drivers
     keyboard_init();
+    mouse_init();
     ata_init();
 
     // Step 7: Storage
@@ -38,6 +39,8 @@ static void kernel_thread(void *argument)
     // Step 8: File Handling
     vfs_set_root(ext2_mount(PARTITION_DATA));
     vfs_mount("/dev", devfs_mount());
+    vfs_mount("/tmp", tmpfs_mount());
+    vfs_mount("/proc", procfs_mount());
 
     if (test_mode_active()) {
         tests_run();

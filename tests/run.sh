@@ -142,6 +142,36 @@ login_test() {
     fi
 }
 
+# Moves the mouse through QEMU, which sends real PS/2 packets to IRQ 12.
+mouse_test() {
+    local log=build/test-mouse.log
+
+    rm -f "$log"
+    {
+        sleep 3
+        for key in r o o t ret r o o t ret; do
+            echo "sendkey $key"
+            sleep 0.1
+        done
+        sleep 1
+        for key in m o u s e t e s t ret; do
+            echo "sendkey $key"
+            sleep 0.1
+        done
+        sleep 1
+        echo "mouse_move 10 5"
+        sleep 0.5
+        echo "mouse_move -7 3"
+        sleep 1
+        echo quit
+    } | timeout 30 qemu-system-i386 "${QEMU_ARGS[@]}" -snapshot \
+        -drive "file=$IMAGE,format=raw,if=ide" -serial "file:$log" \
+        -monitor stdio > /dev/null 2>&1
+    # QEMU's y axis points the opposite way to PS/2, so 5 arrives as -5.
+    report "mouse-first-move" "$log" "mouse moved x=10 y=-5 buttons=0"
+    report "mouse-second-move" "$log" "mouse moved x=-7 y=-3 buttons=0"
+}
+
 kernel_test ticks "tick 50"
 kernel_test panic "unhandled CPU exception"
 kernel_test memory "TEST-PASS"
@@ -152,9 +182,12 @@ kernel_test sync "TEST-PASS"
 kernel_test disk "TEST-PASS"
 image_test
 keyboard_test
+mouse_test
+report "disk-uses-dma" build/test-grub.log "Disk: using DMA"
 shell_test shell tests/shell-commands.txt "shell-commands-done"
 SHELL_WAIT=3 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
 login_test
+shell_test tmptest tests/tmptest-commands.txt "TEST-PASS tmptest"
 SHELL_WAIT=70 shell_test swaptest tests/swaptest-commands.txt "TEST-PASS swaptest"
 SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"
 shell_test ctrl-c tests/ctrl-c-commands.txt "^after-ctrl-c"

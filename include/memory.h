@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "abi.h"
+
 struct multiboot_info;
 struct Process;
 struct Registers;
@@ -76,6 +78,7 @@ struct MemoryArea {
 
 // Virtual memory: demand paging, swap and Clock
 void virtual_memory_init();
+void get_memory_info(MemoryInfo *info);
 uint32_t get_user_frame();
 bool handle_page_fault(uint32_t address, bool is_write);
 int map_new_user_page(uint32_t *page_dir, uint32_t virt, uint32_t flags);

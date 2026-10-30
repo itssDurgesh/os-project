@@ -110,6 +110,8 @@ void console_set_echo(bool enabled);
 // Filesystems
 Inode *ext2_mount(int partition);
 Inode *devfs_mount();
+Inode *tmpfs_mount();
+Inode *procfs_mount();
 
 // Pipes
 int pipe_create(File **read_end, File **write_end);

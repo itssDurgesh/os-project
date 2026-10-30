@@ -123,6 +123,12 @@ struct MemoryInfo {
     uint32_t evicted_pages;
 };
 
+struct MouseEvent {
+    int x_move;
+    int y_move;
+    int buttons;
+};
+
 #define PROCESS_NAME_LENGTH 32
 
 struct procinfo {

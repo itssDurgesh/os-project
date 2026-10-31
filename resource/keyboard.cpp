@@ -17,6 +17,15 @@
 
 #define QUEUE_SIZE 256
 #define KEY_CTRL_C 3
+#define KEY_ESCAPE 27
+
+#define SCANCODE_UP    0x48
+#define SCANCODE_DOWN  0x50
+#define SCANCODE_LEFT  0x4B
+#define SCANCODE_RIGHT 0x4D
+#define SCANCODE_HOME   0x47
+#define SCANCODE_END    0x4F
+#define SCANCODE_DELETE 0x53
 
 // Scancode set 1, US layout. 0 means the key has no character.
 static const char normal_keys[128] = {
@@ -79,6 +88,38 @@ bool input_get_char(char *result)
     return true;
 }
 
+// Sends an arrow key the way a terminal does: ESC [ and a letter.
+static void send_arrow_key(uint8_t key)
+{
+    char letter = 0;
+
+    if (key == SCANCODE_UP)
+        letter = 'A';
+    else if (key == SCANCODE_DOWN)
+        letter = 'B';
+    else if (key == SCANCODE_RIGHT)
+        letter = 'C';
+    else if (key == SCANCODE_LEFT)
+        letter = 'D';
+    else if (key == SCANCODE_HOME)
+        letter = 'H';
+    else if (key == SCANCODE_END)
+        letter = 'F';
+
+    if (key == SCANCODE_DELETE) {
+        input_put_char(KEY_ESCAPE);
+        input_put_char('[');
+        input_put_char('3');
+        input_put_char('~');
+    }
+
+    if (letter != 0) {
+        input_put_char(KEY_ESCAPE);
+        input_put_char('[');
+        input_put_char(letter);
+    }
+}
+
 static void keyboard_interrupt(Registers *r)
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
@@ -93,7 +134,9 @@ static void keyboard_interrupt(Registers *r)
         return;
     }
     if (extended_key) {
-        extended_key = false;  // arrow keys and so on have no character
+        extended_key = false;
+        if (!released)
+            send_arrow_key(key);
         return;
     }
 
@@ -109,8 +152,8 @@ static void keyboard_interrupt(Registers *r)
         return;
 
     c = shift_down ? shifted_keys[key] : normal_keys[key];
-    if (c == 0)
-        return;
+    if (c == 0 || c == KEY_ESCAPE)
+        return;                 // the Esc key alone would look like an arrow key
 
     if (ctrl_down && c >= 'a' && c <= 'z')
         c = c - 'a' + 1;  // Ctrl+D becomes character 4

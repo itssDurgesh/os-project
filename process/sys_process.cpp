@@ -87,7 +87,7 @@ int sys_wait(Registers *r)
     if (user_status != nullptr && !user_range_valid(user_status, sizeof(int), true))
         return -EFAULT;
 
-    pid = process_wait(&status);
+    pid = process_wait(&status, (int)r->ecx, r->edx != 0);
     if (pid > 0 && user_status != nullptr)
         *user_status = status;
     return pid;

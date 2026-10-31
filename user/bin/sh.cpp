@@ -15,6 +15,7 @@ struct command {
 
 static char line[LINE_LENGTH];
 static struct command commands[MAX_COMMANDS];
+static bool run_in_background;
 
 static bool is_space(char c)
 {
@@ -51,7 +52,9 @@ static int parse_line()
     memset(command, 0, sizeof(*command));
 
     while ((word = next_word(&cursor)) != nullptr) {
-        if (strcmp(word, "|") == 0) {
+        if (strcmp(word, "&") == 0) {
+            run_in_background = true;
+        } else if (strcmp(word, "|") == 0) {
             if (command->argc == 0 || ++count == MAX_COMMANDS)
                 return -1;
             command = &commands[count];
@@ -121,6 +124,7 @@ static void run_program(const struct command *command)
 
 static void run_pipeline(int count)
 {
+    int pids[MAX_COMMANDS];
     int previous_read = -1;
 
     for (int i = 0; i < count; i++) {
@@ -139,7 +143,15 @@ static void run_pipeline(int count)
         }
 
         if (pid == 0) {
-            default_signal(SIGINT);     // Ctrl+C should stop this program
+            if (run_in_background) {
+                // It must not steal keys from you, or stop on Ctrl+C.
+                int nothing = open("/dev/null", O_RDONLY);
+
+                dup2(nothing, STDIN);
+                close(nothing);
+            } else {
+                default_signal(SIGINT);     // Ctrl+C should stop this program
+            }
 
             if (previous_read >= 0) {
                 dup2(previous_read, STDIN);
@@ -154,6 +166,8 @@ static void run_pipeline(int count)
             run_program(&commands[i]);
         }
 
+        pids[i] = pid;
+
         if (previous_read >= 0)
             close(previous_read);
         if (fds[1] >= 0)
@@ -161,8 +175,34 @@ static void run_pipeline(int count)
         previous_read = fds[0];
     }
 
+    if (run_in_background) {
+        printf("[started] process %d\n", pids[count - 1]);
+        return;
+    }
+
     for (int i = 0; i < count; i++)
-        wait(nullptr);
+        waitpid(pids[i], nullptr, false);
+}
+
+// Collects background programs that have finished, without waiting for any.
+static void check_finished_programs()
+{
+    int status;
+    int pid;
+
+    while ((pid = waitpid(0, &status, true)) > 0)
+        printf("[finished] process %d, status %d\n", pid, status);
+}
+
+static void show_help()
+{
+    printf("Files:    ls, ls -l, cat, cp, mv, rm, touch, mkdir, rmdir, edit, head, grep, wc\n");
+    printf("Folders:  cd, pwd\n");
+    printf("C++:      c++ file.cpp -o name, then ./name   or   run file.cpp\n");
+    printf("System:   ps, free, kill, sleep, whoami, chmod, clear\n");
+    printf("Shell:    a | b, a > file, a >> file, a < file, a &\n");
+    printf("Keys:     Up and Down for old commands, Left and Right to edit,\n");
+    printf("          Ctrl+C stops a program. Type exit to log out.\n");
 }
 
 static bool run_builtin(const struct command *command)
@@ -173,6 +213,11 @@ static bool run_builtin(const struct command *command)
 
         if (status < 0)
             fprintf(STDERR, "cd: %s: %s\n", path, error_text(status));
+        return true;
+    }
+
+    if (strcmp(command->argv[0], "help") == 0) {
+        show_help();
         return true;
     }
 
@@ -189,13 +234,14 @@ int main()
     bool known = user_by_uid(getuid(), &user);
 
     printf("\nWelcome to the OS Project shell, %s.\n", known ? user.name : "user");
-    printf("Try: ls -l, cat, echo, mkdir, rm, wc, pwd, cd, ps, whoami, chmod, kill, free,\n");
-    printf("pipes like ls / | wc, and exit to log out.\n");
+    printf("Type help to see what you can do, and exit to log out.\n");
 
     for (;;) {
         char cwd[MAX_PATH];
         int length;
         int count;
+
+        check_finished_programs();
 
         getcwd(cwd, sizeof(cwd));
         printf("%s %s ", cwd, (getuid() == 0) ? "#" : "$");
@@ -207,6 +253,7 @@ int main()
         }
         line[length] = '\0';
 
+        run_in_background = false;
         count = parse_line();
         if (count < 0)
             fprintf(STDERR, "sh: syntax error\n");

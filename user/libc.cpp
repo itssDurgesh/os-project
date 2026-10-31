@@ -84,6 +84,11 @@ int getpid() { return syscall3(SYS_GETPID, 0, 0, 0); }
 int getuid() { return syscall3(SYS_GETUID, 0, 0, 0); }
 int getgid() { return syscall3(SYS_GETGID, 0, 0, 0); }
 int wait(int *status) { return syscall3(SYS_WAIT, (uint32_t)status, 0, 0); }
+
+int waitpid(int pid, int *status, bool do_not_sleep)
+{
+    return syscall3(SYS_WAIT, (uint32_t)status, pid, do_not_sleep);
+}
 int sleep(uint32_t milliseconds) { return syscall3(SYS_SLEEP, milliseconds, 0, 0); }
 int close(int fd) { return syscall3(SYS_CLOSE, fd, 0, 0); }
 int unlink(const char *path) { return syscall3(SYS_UNLINK, (uint32_t)path, 0, 0); }

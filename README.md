@@ -18,7 +18,7 @@ Then, in this folder:
 | --- | --- |
 | `make` | Builds the kernel, the programs and the disk image |
 | `make run` | Starts the OS in a QEMU window |
-| `make test` | Runs all the automatic tests (takes about 5 minutes) |
+| `make test` | Runs all the automatic tests (takes about 6 minutes) |
 | `make dist` | Makes `build/os-demo.zip` for Windows laptops |
 | `make clean` | Deletes everything that was built |
 
@@ -31,13 +31,53 @@ Then, in this folder:
 
 These are demo passwords for the assignment. Type `exit` to log out.
 
-Commands: `ls`, `ls -l`, `cat`, `echo`, `mkdir`, `rm`, `rmdir`, `wc`, `pwd`, `cd`,
-`whoami`, `chmod`, `ps`, `kill`, `sleep`, `free`, and `exit`.
+Type `help` in the shell to see everything.
+
+| Area | Commands |
+| --- | --- |
+| Files | `ls`, `ls -l`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `grep`, `wc` |
+| Editing | `edit file.txt` |
+| C++ | `c++ file.cpp -o name`, `run file.cpp` |
+| System | `ps`, `free`, `kill`, `sleep`, `whoami`, `chmod`, `clear` |
+
+The shell has pipes (`ls / | wc`), redirection (`echo hi > a.txt`, `cat < a.txt`,
+`echo more >> a.txt`) and background programs (`sleep 30 &`). Press the Up and
+Down arrows for old commands, Left and Right to move along a line, Backspace,
+Delete, Home and End to edit it, and Ctrl+C to stop a program. `keytest` shows the
+code for each key, which helps if a key doesn't seem to work.
 
 Try `cat /proc/meminfo` and `cat /proc/processes`. Files in `/tmp` live in RAM.
 
-The shell also has pipes (`ls / | wc`) and redirection (`echo hi > a.txt`,
-`cat < a.txt`, `echo more >> a.txt`). Ctrl+C stops the running program.
+## Writing C++ inside the OS
+
+```text
+edit hello.cpp
+run hello.cpp
+```
+
+In the editor, use the arrow keys to move, **Ctrl+S** to save and **Ctrl+Q** to quit.
+`run` compiles and starts the program. To keep the program, use the compiler
+yourself:
+
+```text
+c++ hello.cpp -o hello
+./hello
+```
+
+There are examples in `/examples`, such as `run /examples/fibonacci.cpp`.
+
+The compiler is `user/bin/c++.cpp`. It writes real x86 machine code, with no
+assembler or linker. It understands:
+
+- `int`, `char`, `bool`, `string`, `void`, `const`, arrays and global variables
+- functions, recursion, prototypes, and arrays as parameters
+- `if`, `else`, `while`, `do`, `for`, `break`, `continue`, `return`, and `? :`
+- `cout`, `cin`, `endl`, `getline`
+- `s.length()`, `s.size()`, `abs`, `min`, `max`, `rand`, `to_string`, `stoi`, `exit`
+
+It's a small subset of C++: there are no classes, structs, pointers, references,
+templates, `vector`, `switch` or file streams. `#include` lines are skipped,
+because everything it supports is built in. Each program is compiled from one file.
 
 Changes on the disk are thrown away when QEMU closes, so each `make run` starts
 clean. Remove `-snapshot` from the Makefile to keep them.

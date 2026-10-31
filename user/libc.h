@@ -20,6 +20,7 @@ int fork();
 int exec(const char *path, char *const argv[]);
 extern "C" void exit(int status) __attribute__((noreturn));
 int wait(int *status);
+int waitpid(int pid, int *status, bool do_not_sleep);
 int getpid();
 int getuid();
 int getgid();

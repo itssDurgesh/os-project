@@ -1,0 +1,47 @@
+root
+root
+edit /tmp/note.txt
+first line
+second line
+CTRL-S
+CTRL-Q
+cat /tmp/note.txt
+edit /tmp/note.txt
+DOWN
+RIGHT
+RIGHT
+RIGHT
+RIGHT
+NO-ENTER-X
+CTRL-S
+CTRL-Q
+cat /tmp/note.txt
+cp /etc/hello.txt /tmp/a.txt
+mv /tmp/a.txt /tmp/b.txt
+cat /tmp/b.txt
+cat /tmp/a.txt
+touch /tmp/empty.txt
+ls /tmp
+echo bad line > /tmp/g.txt
+echo nice line >> /tmp/g.txt
+grep nice /tmp/g.txt
+head -1 /tmp/g.txt
+sleep 2 &
+ps
+echo still typing
+sleep 3
+echo after-sleep
+echo history-check
+UP
+
+help
+TYPE:echo abcd
+BACKSPACE
+LEFT
+TYPE:X
+ENTER
+TYPE:zecho delete-ok
+HOME
+DELETE
+ENTER
+echo tools-done

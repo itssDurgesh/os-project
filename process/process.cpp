@@ -395,7 +395,9 @@ void process_exit(int status)
     thread_exit(status);
 }
 
-int process_wait(int *status)
+// `wanted_pid` 0 means any child. With `do_not_sleep`, it returns 0 straight away
+// if no child has finished yet.
+int process_wait(int *status, int wanted_pid, bool do_not_sleep)
 {
     for (;;) {
         bool has_children = false;
@@ -403,6 +405,8 @@ int process_wait(int *status)
         for (Process *process = process_list(); process != nullptr;
              process = process->list_next) {
             if (process->parent_pid != current_process->pid)
+                continue;
+            if (wanted_pid != 0 && process->pid != wanted_pid)
                 continue;
 
             has_children = true;
@@ -417,6 +421,9 @@ int process_wait(int *status)
 
         if (!has_children)
             return -ECHILD;
+
+        if (do_not_sleep)
+            return 0;
 
         child_exited.sleep(true);
         if (signal_pending())

@@ -58,6 +58,30 @@ shell_test() {
         while IFS= read -r command; do
             if [ "$command" = "CTRL-C" ]; then
                 printf '\003'
+            elif [ "$command" = "CTRL-S" ]; then
+                printf '\023'
+            elif [ "$command" = "CTRL-Q" ]; then
+                printf '\021'
+            elif [ "$command" = "UP" ]; then
+                printf '\033[A'
+            elif [ "$command" = "LEFT" ]; then
+                printf '\033[D'
+            elif [ "$command" = "HOME" ]; then
+                printf '\033[H'
+            elif [ "$command" = "DELETE" ]; then
+                printf '\033[3~'
+            elif [ "$command" = "BACKSPACE" ]; then
+                printf '\177'
+            elif [ "$command" = "ENTER" ]; then
+                printf '\n'
+            elif [ "${command#TYPE:}" != "$command" ]; then
+                printf '%s' "${command#TYPE:}"
+            elif [ "$command" = "DOWN" ]; then
+                printf '\033[B'
+            elif [ "$command" = "RIGHT" ]; then
+                printf '\033[C'
+            elif [ "$command" = "NO-ENTER-X" ]; then
+                printf 'X'
             else
                 printf '%s\n' "$command"
             fi
@@ -172,6 +196,115 @@ mouse_test() {
     report "mouse-second-move" "$log" "mouse moved x=-7 y=-3 buttons=0"
 }
 
+# The editor, the new commands, history and background programs.
+tools_test() {
+    local log=build/test-tools.log
+
+    SHELL_DELAY=0.7 shell_test tools tests/tools-commands.txt "tools-done"
+    report "serial-backspace-and-left" "$log" "^abXc$"
+    report "serial-home-and-delete" "$log" "^delete-ok$"
+    report "edit-saves-file" "$log" "^second line$"
+    report "edit-arrow-key" "$log" "^secoXnd"
+    report "cp-and-mv" "$log" "^Hello from the OS Project disk"
+    report "grep" "$log" "^nice line$"
+    report "background-started" "$log" "started. process"
+    report "background-finished" "$log" "finished. process"
+    if [ "$(grep -c '^history-check$' "$log")" -eq 2 ]; then
+        echo "PASS  up arrow repeats a command"
+        passed=$((passed + 1))
+    else
+        echo "FAIL  up arrow repeats a command"
+        failed=$((failed + 1))
+    fi
+}
+
+# Compiles C++ inside the OS and runs the programs it made.
+compiler_test() {
+    local log=build/test-compiler.log
+
+    SHELL_DELAY=2 shell_test compiler tests/compiler-commands.txt "compiler-done"
+    report "compiled-hello" "$log" "^Hello from my own compiler!"
+    report "compiled-recursion" "$log" "^0 1 1 2 3 5 8 13 21 34 $"
+    report "compiled-arrays" "$log" "^Sorted: 3 5 7 19 42 88$"
+    report "compiled-cin" "$log" "Answer: 42$"
+    report "compiled-strings" "$log" "Hello, Asha!$"
+    report "compiled-string-length" "$log" "^Your name has 4 letters$"
+    report "compiled-name-with-r" "$log" "Hello, Durgesh!$"
+    report "compiled-feature-test" "$log" "^TEST-PASS compiler$"
+    report "compiled-printing" "$log" "^print check: -42 c text 0$"
+    report "compiler-error-message" "$log" "bad.cpp:1: error: expected a value here"
+    report "compiler-unknown-name" "$log" "bad2.cpp:1: error: this variable doesn't exist"
+    report "compiled-a-out" "$log" "^from a.out$"
+    report "compiled-as-student" "$log" "^student compiled this$"
+}
+
+# Presses each key through QEMU's real keyboard.
+press_keys() {
+    for key in "$@"; do
+        echo "sendkey $key"
+        sleep 0.08
+    done
+}
+
+# Backspace, the arrow keys, Home and Delete at the prompt, using real keys.
+line_editing_test() {
+    local log=build/test-line-editing.log
+
+    rm -f "$log"
+    {
+        sleep 3
+        press_keys r o o t ret r o o t ret
+        sleep 1
+        press_keys e c h o spc a b c d backspace left x ret
+        sleep 0.5
+        press_keys z e c h o spc r e a l k e y s home delete ret
+        sleep 0.5
+        press_keys e c h o spc w r o n g home right right right right right
+        press_keys end backspace backspace backspace backspace backspace h i ret
+        sleep 0.5
+        press_keys up ret
+        sleep 1
+        echo quit
+    } | timeout 30 qemu-system-i386 "${QEMU_ARGS[@]}" -snapshot \
+        -drive "file=$IMAGE,format=raw,if=ide" -serial "file:$log" \
+        -monitor stdio > /dev/null 2>&1
+    report "keys-backspace-then-left" "$log" "^abxc"
+    report "keys-home-and-delete" "$log" "^realkeys"
+    report "keys-end-and-backspace" "$log" "^hi"
+}
+
+# Everything a person would do: write a program in the editor, save it, compile
+# it and run it, using only real key presses.
+editor_to_program_test() {
+    local log=build/test-editor.log
+
+    rm -f "$log" build/editor.png
+    {
+        sleep 3
+        press_keys r o o t ret r o o t ret
+        sleep 1
+        press_keys e d i t spc slash t m p slash p dot c p p ret
+        sleep 1
+        press_keys i n t spc m a i n shift-9 shift-0 spc shift-bracket_left ret
+        press_keys spc spc spc spc c o u t spc shift-comma shift-comma spc 4 2
+        press_keys spc shift-comma shift-comma spc e n d l semicolon ret
+        press_keys shift-bracket_right
+        press_keys up right right right right right right right right right right right right right backspace 7
+        press_keys ctrl-s
+        sleep 1
+        echo "screendump build/editor.png -f png"
+        sleep 1
+        press_keys ctrl-q
+        sleep 1
+        press_keys r u n spc slash t m p slash p dot c p p ret
+        sleep 3
+        echo quit
+    } | timeout 40 qemu-system-i386 "${QEMU_ARGS[@]}" -snapshot \
+        -drive "file=$IMAGE,format=raw,if=ide" -serial "file:$log" \
+        -monitor stdio > /dev/null 2>&1
+    report "edit-compile-run-with-real-keys" "$log" "^47"
+}
+
 kernel_test ticks "tick 50"
 kernel_test panic "unhandled CPU exception"
 kernel_test memory "TEST-PASS"
@@ -182,11 +315,15 @@ kernel_test sync "TEST-PASS"
 kernel_test disk "TEST-PASS"
 image_test
 keyboard_test
+line_editing_test
+editor_to_program_test
 mouse_test
 report "disk-uses-dma" build/test-grub.log "Disk: using DMA"
 shell_test shell tests/shell-commands.txt "shell-commands-done"
 SHELL_WAIT=3 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
 login_test
+tools_test
+compiler_test
 shell_test tmptest tests/tmptest-commands.txt "TEST-PASS tmptest"
 SHELL_WAIT=70 shell_test swaptest tests/swaptest-commands.txt "TEST-PASS swaptest"
 SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"

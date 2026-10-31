@@ -136,7 +136,7 @@ void process_start_first(const char *path) __attribute__((noreturn));
 int process_exec(const char *path, char *const argv[], Registers *r);
 int process_fork(const Registers *r);
 void process_exit(int status) __attribute__((noreturn));
-int process_wait(int *status);
+int process_wait(int *status, int wanted_pid, bool do_not_sleep);
 void process_fault(const Registers *r, const char *reason) __attribute__((noreturn));
 
 // Signals

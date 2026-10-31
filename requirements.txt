@@ -1,0 +1,29 @@
+# Ubuntu packages needed to build and run this OS. These are not Python packages,
+# so `pip install -r` won't work. Install them on Ubuntu with:
+#
+#   sudo apt update
+#   sed 's/#.*//' requirements.txt | xargs sudo apt install -y
+#
+# Each comment shows the version this project was tested with, on Ubuntu 26.04.
+# Other versions will probably work too.
+
+# Compiling the kernel and programs
+build-essential         # g++ 15.2, make 4.4.1
+gcc-multilib            # lets g++ build 32-bit code
+nasm                    # 3.01, the assembler
+
+# Making the bootable disk image
+grub-pc-bin             # 2.14, the bootloader
+xorriso                 # 1.5.6, needed by the GRUB tools
+e2fsprogs               # 1.47.2, creates and checks the ext2 disk
+fdisk                   # 2.41.3, creates the partition table
+python3                 # 3.14, for the small build scripts
+
+# Running and debugging the OS
+qemu-system-x86         # 10.2.1, the emulator
+qemu-system-gui         # 10.2.1, the QEMU window
+gdb                     # 17.1, the debugger
+
+# Getting the code
+git                     # 2.53
+unzip                   # for os-demo.zip

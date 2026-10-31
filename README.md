@@ -4,6 +4,8 @@ A small operating system written in C++ for 32-bit x86. It boots through GRUB,
 has login, processes, virtual memory with swap, a real ext2 filesystem, pipes,
 signals and a shell. It runs inside the QEMU emulator.
 
+To set this up on your own laptop, see [SETUP.md](SETUP.md).
+
 ## Build and run
 
 You need Ubuntu (WSL is fine) with these tools:

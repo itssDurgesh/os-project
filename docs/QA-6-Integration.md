@@ -167,7 +167,7 @@ Each stage needs the ones before it. Memory needs the IDT for page faults, and t
 Disk reads sleep until an interrupt. The boot code can't sleep, because it becomes the idle process. A thread can.
 
 **26. When do interrupts turn on?**
-In `idle_loop`, through `enable_interrupts_and_wait`, after the scheduler is ready.
+In `thread_start`, the first time the kernel thread runs. `thread_create` sets `need_resched`, so `idle_loop` calls `schedule` before it enables anything. That switches to the kernel thread, and `thread_start` calls `enable_interrupts`.
 
 **27. Why does memory come in two stages?**
 Basic memory is needed early. Swap and demand paging need the disk and files, which come later.
@@ -320,7 +320,7 @@ There's no C library, and GCC may generate calls to `memcpy` by itself.
 `qemu_exit` writes to port `0xF4`, a debug-exit device added only during tests.
 
 **71. How many tests pass?**
-All 110, on a clean build of commit `9e9ae97`, with no compiler warnings. It takes about 8 minutes.
+All 110, on a clean build of commit `9e9ae97`, with no compiler warnings. It takes about 6 to 8 minutes.
 
 **72. Why QEMU and not a real laptop?**
 Our OS targets old BIOS PCs with IDE disks. Modern laptops use UEFI and NVMe, so it wouldn't boot, and a mistake could erase Windows.

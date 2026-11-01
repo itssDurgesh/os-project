@@ -265,7 +265,7 @@ The idea is the same, but each `File` is a separate object, created with `new`, 
 No, it's a simplified version of the format. There's one mounted filesystem, one global lock, no triple-indirect use, no journal, and real timestamps aren't stored.
 
 **61. Why are timestamps wrong?**
-There's no clock driver. `now()` gives seconds since boot, plus 1 so the value isn't 0.
+ext2 isn't connected to the real-time clock. `now()` gives seconds since boot, plus 1 so the value isn't 0. The clock driver does exist: `rtc_read` in `hal/rtc.cpp` gives `/proc/date` the real time, and that's what the `date` command shows.
 
 **62. Can I rename a file?**
 Yes, with `mv`, but there's no `rename` system call, so it copies the file and deletes the original. The copy keeps the same permissions, but the file gets a new inode.
@@ -298,7 +298,7 @@ No. tmpfs is in RAM. Files on `/` survive only if QEMU runs without `-snapshot`.
 `mke2fs` creates it on every ext2 disk, for `e2fsck` to use.
 
 **72. Why does `ls -l` show no date?**
-`struct stat` has no time fields, and the OS has no real clock.
+`struct stat` has no time fields, and ext2 stores seconds since boot, not real dates.
 
 **73. Can you mount more filesystems from the shell?**
 No. There's no `mount` system call. `kernel_thread` does the mounts at boot.

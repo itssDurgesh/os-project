@@ -141,7 +141,7 @@ struct ext2_fs {
 // One filesystem is mounted, so the driver keeps it here.
 static struct ext2_fs fs;
 
-// The hardware clock isn't read yet, so times are seconds since boot. A nonzero
+// ext2 doesn't use the real-time clock, so times are seconds since boot. A nonzero
 // value keeps e2fsck happy about deleted inodes.
 static uint32_t now()
 {

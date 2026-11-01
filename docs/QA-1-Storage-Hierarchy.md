@@ -201,7 +201,7 @@ Hardware. We run on one core, and x86 keeps its caches coherent.
 It's a straight search of 128 entries. That's slower in theory than a hash table, but it's tiny compared with a disk read, and it's easy to explain.
 
 **45. Could two processes read the same block at once?**
-No. The first marks it busy, and the second sleeps on `waiters` until `block_put`.
+No, because of `fs.lock`. After boot, all ext2 disk access runs under that one mutex, so the second process waits before it reaches `block_get`, even while the first is asleep on the disk. The `busy` flag alone couldn't do this during a miss, because `find_buffer` skips a buffer until `valid` is set.
 
 **46. Why does the kernel have its own partition if the kernel never mounts it?**
 GRUB reads the kernel from it at boot. The running OS only needs partition 3 as `/`, and it also uses partition 2 for swap.

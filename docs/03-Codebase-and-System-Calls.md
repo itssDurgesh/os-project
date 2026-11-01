@@ -467,7 +467,7 @@ When a page loads from a file, these locks are taken in this order: `pager_lock`
 2. GRUB reads `/boot/kernel.elf` from partition 1 and jumps to `_start`.
 3. `_start` turns on 4 MB pages and paging, and jumps to `higher_half` at `0xC0000000`.
 4. `kmain` runs: serial, VGA, GDT, IDT, PIC, timer, frames, paging, `kmalloc`, scheduler.
-5. `thread_create` makes the kernel thread, which is PID 1. `idle_loop` turns interrupts on.
+5. `thread_create` makes the kernel thread, which is PID 1. `idle_loop` switches to it straight away, and `thread_start` turns interrupts on.
 6. `kernel_thread` starts the drivers, reads the partition table, and mounts `/`, `/dev`, `/tmp` and `/proc`.
 7. `virtual_memory_init` starts the swapper thread, and `syscall_init` fills the table.
 8. `process_start_first` turns PID 1 into `/sbin/init`, in ring 3, through `enter_user_mode`.
@@ -559,5 +559,5 @@ Know these before the viva, so nobody is caught out.
 | `cachetest`, `schedtest` and `locktest` | No programs with these names. The checks live in the `disk`, `sched` and `aging` boot tests, and in `ipctest` | See [01-Feature-Coverage.md](01-Feature-Coverage.md) |
 | Banker's covers pipes, queues and shared memory | `res_request` is a separate call. `pipe()`, `msgget()` and `shmget()` don't call it | Banker's is demonstrated by `banktest`. It is not enforced on real pipes |
 | Spinlock busy-waits | `Spinlock` turns interrupts off, and panics if already locked | On one CPU, spinning could never end, because nothing else could run to unlock it |
-| Inode stores timestamps | Stored, but as seconds since boot | There is no clock driver, so the OS doesn't know the real date |
+| Inode stores timestamps | Stored, but as seconds since boot | ext2 isn't connected to the real-time clock. `rtc_read` exists, but only `/proc/date` uses it, for the `date` command |
 | Kernel locks taken in a documented order | The order exists but is not written down in one place | See section 5.3 of this guide |

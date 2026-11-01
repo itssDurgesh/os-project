@@ -202,7 +202,7 @@ Every 10 ms it adds to `cpu_ticks`, wakes sleepers, resets quotas each second, r
 The kernel isn't preempted. The switch happens in `switch_process_if_needed`, when the process is about to return to user mode.
 
 **26. How does aging work?**
-`age_ready_queues` looks at queues 1 to 3. A process waiting 100 ticks or more moves up one level. After it next runs, it goes back to `base_priority`.
+`age_ready_queues` looks at queues 1 to 3. A process waiting 100 ticks or more moves up one level. When its time slice ends, `schedule` puts it back to `base_priority`. If it goes to sleep instead, it keeps the higher level until a later slice ends.
 
 **27. Did aging work in testing?**
 Yes. The `aging` boot test put a priority 3 thread beside a busy priority 1 thread. It ran after 210 ticks: priority 3 to 2 at about 100 ticks, then 2 to 1 at about 200.

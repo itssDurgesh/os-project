@@ -236,19 +236,22 @@ void delete_process(Process *process)
         }
     }
 
-    free_frames(virt_to_phys(process->kernel_stack));
+    if (process->kernel_stack != nullptr)
+        free_frames(virt_to_phys(process->kernel_stack));
     slab_free(process);
 }
 
-void kernel_stack_alloc(Process *process)
+// Returns false if there is no memory for the stack.
+bool kernel_stack_alloc(Process *process)
 {
     uint32_t frames = alloc_frames(KERNEL_STACK_PAGES);
 
     if (frames == 0)
-        panic("no memory for a kernel stack");
+        return false;
 
     process->kernel_stack = phys_to_virt(frames);
     process->kernel_stack_top = (uint32_t)process->kernel_stack + KERNEL_STACK_SIZE;
+    return true;
 }
 
 void add_new_process(Process *process)
@@ -262,6 +265,17 @@ void add_new_process(Process *process)
 Process *process_list()
 {
     return all_processes;
+}
+
+int process_count()
+{
+    int count = 0;
+
+    for (Process *process = all_processes; process != nullptr;
+         process = process->list_next)
+        count++;
+
+    return count;
 }
 
 Process *find_process(int pid)
@@ -296,10 +310,9 @@ Process *thread_create(const char *name, int priority,
     Process *thread = create_process(name, priority);
     uint32_t *stack;
 
-    if (thread == nullptr)
+    if (thread == nullptr || !kernel_stack_alloc(thread))
         panic("no memory for thread %s", name);
 
-    kernel_stack_alloc(thread);
     thread->entry = entry;
     thread->argument = argument;
 

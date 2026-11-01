@@ -86,6 +86,13 @@ extern "C" void *memcpy(void *dest, const void *src, size_t count);
 extern "C" int memcmp(const void *a, const void *b, size_t count);
 int atoi(const char *text);
 
+// Paths
+bool is_folder(const char *path);
+bool same_file(const char *a, const char *b);
+const char *base_name(const char *path);  // the part after the last /
+bool join_path(const char *folder, const char *name, char *result);
+bool matches_pattern(const char *text, const char *pattern);  // * and ? wildcards
+
 // Output. Supports %d %u %x %s %c %%.
 int printf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 int fprintf(int fd, const char *format, ...) __attribute__((format(printf, 2, 3)));

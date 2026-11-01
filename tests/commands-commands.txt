@@ -1,0 +1,78 @@
+root
+root
+sleep 30 &
+kill -9 4
+echo killed
+echo "hello   world"
+echo 'it is | quoted'
+echo semi-one; echo semi-two
+echo and-one && echo and-two
+missingprogram && echo not-reached ; echo after-skip
+mkdir /tmp/w
+touch /tmp/w/a.txt /tmp/w/b.txt /tmp/w/c.log
+echo /tmp/w/*.log
+echo "/tmp/w/*.log"
+echo /tmp/w/*.missing
+ls /tmp/w/*.txt | wc -l
+ls -a /etc
+ls -la /etc
+ls /etc/hello.txt
+wc -l /etc/passwd
+wc -w /etc/passwd
+head -n 1 /etc/passwd
+tail -n 1 /etc/passwd
+tail -1 /etc/passwd
+grep -i ROOT /etc/passwd
+grep -n student /etc/passwd
+grep -v root /etc/passwd
+echo pear > /tmp/s.txt ; echo apple >> /tmp/s.txt
+sort /tmp/s.txt | head -1
+sort -r /tmp/s.txt | head -1
+echo 10 > /tmp/n.txt ; echo 9 >> /tmp/n.txt
+sort -n /tmp/n.txt | head -1
+touch /tmp/c
+chmod +x /tmp/c
+ls -l /tmp/c
+chmod -x /tmp/c
+ls -l /tmp/c
+mkdir -p /tmp/p/q/r
+ls /tmp/p/q
+cp -r /tmp/p /tmp/p2
+find /tmp/p2 -name r
+find /examples -name "fib*"
+rm -f /tmp/nothing
+echo rm-f-ok
+rm -r /tmp/p2
+ls /tmp/p2
+cp /etc/hello.txt /tmp/w
+ls /tmp/w/hello.txt
+mv /tmp/w/hello.txt /tmp/p
+ls /tmp/p/hello.txt
+cat /etc
+wc /etc
+mv /tmp/p /tmp/p3
+ls /tmp/p3
+echo keep-me > /tmp/same.txt
+cp /tmp/same.txt /tmp
+mv /tmp/same.txt /tmp
+cat /tmp/same.txt
+echo alpha > /tmp/j.txt ; echo beta >> /tmp/j.txt
+head -n1 /tmp/j.txt
+tail -n1 /tmp/j.txt
+uname -a
+date
+df
+top
+CTRL-C
+echo after-top
+history
+exit
+student
+student
+echo ~/x
+cd /tmp ; cd ; pwd > /tmp/where ; cat /tmp/where
+cp /proc/uptime ~/u
+ls -l ~/u
+mkdir -p /home/student/a/b
+ls /home/student/a
+echo commands-done

@@ -16,6 +16,8 @@ class Inode;
 #define NUM_PRIORITIES 4  // 0 = highest, 3 = lowest
 #define DEFAULT_PRIORITY 2
 
+#define MAX_PROCESSES 64  // fork() fails past this, which stops a fork bomb
+
 #define MAX_ATTACHED_SEGMENTS 4
 
 #define TIME_QUANTUM_TICKS 2  // 2 ticks of 10 ms = 20 ms
@@ -124,9 +126,10 @@ void thread_sleep(uint32_t ticks);
 // Pieces of thread creation that fork() also needs
 Process *create_process(const char *name, int priority);
 void delete_process(Process *process);
-void kernel_stack_alloc(Process *process);
+bool kernel_stack_alloc(Process *process);
 void add_new_process(Process *process);
 Process *process_list();
+int process_count();
 Process *find_process(int pid);
 void wake_process_for_signal(Process *process);
 

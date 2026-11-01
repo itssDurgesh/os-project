@@ -292,14 +292,22 @@ void process_start_first(const char *path)
 
 int process_fork(const Registers *r)
 {
-    Process *child = create_process(current_process->name, current_process->base_priority);
+    Process *child;
     Registers *child_regs;
     uint32_t *stack;
 
+    // Without a limit, a fork bomb would use up all of the kernel's memory.
+    if (process_count() >= MAX_PROCESSES)
+        return -EAGAIN;
+
+    child = create_process(current_process->name, current_process->base_priority);
     if (child == nullptr)
         return -ENOMEM;
 
-    kernel_stack_alloc(child);
+    if (!kernel_stack_alloc(child)) {
+        delete_process(child);
+        return -ENOMEM;
+    }
 
     child->uid = current_process->uid;
     child->gid = current_process->gid;
@@ -311,7 +319,6 @@ int process_fork(const Registers *r)
     for (int i = 0; i < NUM_SIGNALS; i++)
         child->signal_handlers[i] = current_process->signal_handlers[i];
     child->signal_return_address = current_process->signal_return_address;
-    shared_memory_copy_to_child(current_process, child);
     child->page_dir = copy_page_directory(current_process->page_dir);
     child->files = (File **)kmalloc_zeroed(MAX_OPEN_FILES * sizeof(File *));
 
@@ -323,6 +330,9 @@ int process_fork(const Registers *r)
         delete_process(child);
         return -ENOMEM;
     }
+
+    // Only once nothing can fail, or a failed fork would leave segments counted.
+    shared_memory_copy_to_child(current_process, child);
 
     // Parent and child share each open file, including its position.
     for (int fd = 0; fd < MAX_OPEN_FILES; fd++) {

@@ -1,0 +1,9 @@
+root
+root
+echo 'int main() { int n = 0; while (true) { int p = __syscall(1, 0, 0, 0); if (p == 0) { __syscall(7, 2000, 0, 0); return 0; } if (p < 0) { cout << "fork gave " << p << " after " << n << endl; return 0; } n = n + 1; } }' > /tmp/limit.cpp
+run /tmp/limit.cpp
+echo 'int main() { while (true) { __syscall(1, 0, 0, 0); } return 0; }' > /tmp/bomb.cpp
+run /tmp/bomb.cpp
+CTRL-C
+echo after-bomb
+ps

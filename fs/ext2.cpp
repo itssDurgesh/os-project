@@ -1071,6 +1071,14 @@ void Ext2Inode::release()
     delete inode;
 }
 
+void ext2_get_usage(uint32_t *total_kb, uint32_t *free_kb)
+{
+    uint32_t kb_per_block = BLOCK_SIZE / 1024;
+
+    *total_kb = fs.super.blocks_count * kb_per_block;
+    *free_kb = fs.super.free_blocks * kb_per_block;
+}
+
 Inode *ext2_mount(int partition)
 {
     Buffer *buffer;

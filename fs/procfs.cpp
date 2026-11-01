@@ -3,6 +3,8 @@
 //   /proc/meminfo    memory and swap use
 //   /proc/uptime     seconds since boot
 //   /proc/processes  every process
+//   /proc/date       the date and time, from the hardware clock
+//   /proc/diskinfo   how much of the disk is used
 
 #include "errno.h"
 #include "hal.h"
@@ -13,7 +15,7 @@
 
 #define PROC_FILE_MODE 0444
 #define PROC_FOLDER_MODE 0555
-#define PROC_FILE_COUNT 3
+#define PROC_FILE_COUNT 5
 #define KB_PER_PAGE 4
 
 // Builds up text in a buffer. The kernel has no sprintf, so this does the job.
@@ -52,6 +54,14 @@ public:
         }
     }
 
+    // Numbers under 10 get a 0 in front, as in 09:05.
+    void add_two_digits(uint32_t number)
+    {
+        if (number < 10)
+            add_text("0");
+        add_number(number);
+    }
+
     uint32_t get_length()
     {
         return length;
@@ -88,6 +98,41 @@ static void write_uptime(TextBuilder &text)
 {
     text.add_number(get_ticks() / TIMER_HZ);
     text.add_text(" seconds\n");
+}
+
+static void write_date(TextBuilder &text)
+{
+    RealTime time;
+
+    rtc_read(&time);
+
+    text.add_number(time.year);
+    text.add_text("-");
+    text.add_two_digits(time.month);
+    text.add_text("-");
+    text.add_two_digits(time.day);
+    text.add_text(" ");
+    text.add_two_digits(time.hour);
+    text.add_text(":");
+    text.add_two_digits(time.minute);
+    text.add_text(":");
+    text.add_two_digits(time.second);
+    text.add_text(" UTC\n");
+}
+
+static void write_diskinfo(TextBuilder &text)
+{
+    uint32_t total_kb, free_kb;
+
+    ext2_get_usage(&total_kb, &free_kb);
+
+    text.add_text("Filesystem Total-KB Used-KB Free-KB Mounted-on\next2 ");
+    text.add_number(total_kb);
+    text.add_text(" ");
+    text.add_number(total_kb - free_kb);
+    text.add_text(" ");
+    text.add_number(free_kb);
+    text.add_text(" /\n");
 }
 
 static const char *state_name(int state)
@@ -212,6 +257,8 @@ Inode *procfs_mount()
     add_entry(0, "meminfo", write_meminfo);
     add_entry(1, "uptime", write_uptime);
     add_entry(2, "processes", write_processes);
+    add_entry(3, "date", write_date);
+    add_entry(4, "diskinfo", write_diskinfo);
 
     folder->number = 200;
     folder->type = INODE_DIRECTORY;

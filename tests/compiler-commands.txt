@@ -4,23 +4,23 @@ c++ /examples/hello.cpp -o /tmp/hello
 /tmp/hello
 run /examples/fibonacci.cpp
 run /examples/sorting.cpp
-echo 6 * 7 | run /examples/calculator.cpp
+echo "6 * 7" | run /examples/calculator.cpp
 echo Asha | run /examples/greeting.cpp
 echo Durgesh | run /examples/greeting.cpp
 run /examples/feature_test.cpp
-echo int main() { int x = ; } > /tmp/bad.cpp
+echo 'int main() { int x = ; }' > /tmp/bad.cpp
 c++ /tmp/bad.cpp
-echo int main() { missing = 1; } > /tmp/bad2.cpp
+echo 'int main() { missing = 1; }' > /tmp/bad2.cpp
 c++ /tmp/bad2.cpp
 cd /tmp
-echo int main() { cout << "from a.out" << endl; } > small.cpp
+echo 'int main() { cout << "from a.out" << endl; }' > small.cpp
 c++ small.cpp
 ./a.out
 cd /
 exit
 student
 student
-echo int main() { cout << "student compiled this" << endl; } > mine.cpp
+echo 'int main() { cout << "student compiled this" << endl; }' > mine.cpp
 c++ mine.cpp -o mine
 ./mine
 echo compiler-done

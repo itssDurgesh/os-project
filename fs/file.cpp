@@ -63,10 +63,13 @@ int file_open(Inode *base, const char *path, uint32_t flags, uint32_t mode,
     uint32_t access = flags & O_ACCESS_MASK;
     uint32_t wanted = 0;
     Inode *inode;
+    bool created = false;
     int status = vfs_lookup(base, path, &inode);
 
-    if (status == -ENOENT && (flags & O_CREAT))
+    if (status == -ENOENT && (flags & O_CREAT)) {
         status = vfs_create_path(base, path, mode, uid, gid, &inode);
+        created = true;
+    }
     if (status != 0)
         return status;
 
@@ -75,7 +78,10 @@ int file_open(Inode *base, const char *path, uint32_t flags, uint32_t mode,
     if (access == O_WRONLY || access == O_RDWR)
         wanted |= PERMISSION_WRITE;
 
-    status = vfs_check_permission(inode, uid, gid, wanted);
+    // Whoever creates a file can always fill it in, even if its mode is read-only.
+    if (!created)
+        status = vfs_check_permission(inode, uid, gid, wanted);
+
     if (status == 0 && inode->type == INODE_DIRECTORY && (wanted & PERMISSION_WRITE))
         status = -EISDIR;
 
@@ -114,6 +120,11 @@ int file_read(File *file, void *buffer, uint32_t count)
 {
     if ((file->flags & O_ACCESS_MASK) == O_WRONLY)
         return -EBADF;
+
+    // A folder holds entries, not text. Programs list one with readdir().
+    if (file->inode != nullptr && file->inode->type == INODE_DIRECTORY)
+        return -EISDIR;
+
     return file->read(buffer, count);
 }
 

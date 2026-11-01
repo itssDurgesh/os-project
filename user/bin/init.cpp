@@ -3,6 +3,8 @@
 
 #include "libc.h"
 
+#define RETRY_DELAY_MS 1000
+
 int main()
 {
     char *argv[] = { (char *)"/bin/login", nullptr };
@@ -17,6 +19,13 @@ int main()
 
     for (;;) {
         int pid = fork();
+
+        // Too many processes right now. Collect any that have ended, and try again.
+        if (pid < 0) {
+            waitpid(0, nullptr, true);
+            sleep(RETRY_DELAY_MS);
+            continue;
+        }
 
         if (pid == 0) {
             default_signal(SIGTERM);    // only init itself should ignore this

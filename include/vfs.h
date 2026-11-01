@@ -109,6 +109,7 @@ void console_set_echo(bool enabled);
 
 // Filesystems
 Inode *ext2_mount(int partition);
+void ext2_get_usage(uint32_t *total_kb, uint32_t *free_kb);
 Inode *devfs_mount();
 Inode *tmpfs_mount();
 Inode *procfs_mount();

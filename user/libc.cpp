@@ -257,6 +257,74 @@ int atoi(const char *text)
     return value;
 }
 
+// Paths
+
+bool is_folder(const char *path)
+{
+    struct stat info;
+
+    return stat(path, &info) == 0 && info.type == TYPE_DIRECTORY;
+}
+
+// Two filesystems can each have an inode with the same number, so this compares
+// the file's other details too. Used before a copy, which would empty the file if
+// both names were really the same file.
+bool same_file(const char *a, const char *b)
+{
+    struct stat first, second;
+
+    return stat(a, &first) == 0 && stat(b, &second) == 0 &&
+           first.inode == second.inode && first.size == second.size &&
+           first.mode == second.mode && first.uid == second.uid;
+}
+
+const char *base_name(const char *path)
+{
+    const char *name = path;
+
+    for (const char *c = path; *c != '\0'; c++) {
+        if (*c == '/')
+            name = c + 1;
+    }
+    return name;
+}
+
+// Puts folder/name in `result`. Returns false if that is too long for a path.
+bool join_path(const char *folder, const char *name, char *result)
+{
+    size_t length = strlen(folder);
+
+    if (length + strlen(name) + 2 > MAX_PATH)
+        return false;
+
+    strcpy(result, folder);
+    if (length > 0 && result[length - 1] != '/')
+        result[length++] = '/';
+    strcpy(result + length, name);
+    return true;
+}
+
+// * matches any number of characters, and ? matches exactly one.
+bool matches_pattern(const char *text, const char *pattern)
+{
+    if (*pattern == '\0')
+        return *text == '\0';
+
+    if (*pattern == '*') {
+        for (;; text++) {
+            if (matches_pattern(text, pattern + 1))
+                return true;
+            if (*text == '\0')
+                return false;
+        }
+    }
+
+    if (*text == '\0' || (*pattern != '?' && *pattern != *text))
+        return false;
+
+    return matches_pattern(text + 1, pattern + 1);
+}
+
 // Output
 
 struct output {
@@ -389,6 +457,7 @@ const char *error_text(int error)
     case EPERM:     return "operation not allowed";
     case ESRCH:     return "no such process";
     case EINTR:     return "interrupted";
+    case EAGAIN:    return "too many processes";
     default:        return "error";
     }
 }

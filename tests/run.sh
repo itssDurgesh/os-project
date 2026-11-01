@@ -238,6 +238,74 @@ compiler_test() {
     report "compiled-as-student" "$log" "^student compiled this$"
 }
 
+# The shell's quotes, ; && * and ~, and the options common commands take.
+commands_test() {
+    local log=build/test-commands.log
+
+    SHELL_DELAY=0.6 shell_test commands tests/commands-commands.txt "commands-done"
+    report "kill-dash-nine" "$log" "finished. process 4, status 137"
+    report "quotes-keep-spaces" "$log" "^hello   world$"
+    report "quotes-hide-pipe" "$log" "^it is | quoted$"
+    report "semicolon" "$log" "^semi-two$"
+    report "and-after-success" "$log" "^and-two$"
+    report "after-failed-and" "$log" "^after-skip$"
+    report "wildcard" "$log" "^/tmp/w/c.log$"
+    report "quoted-wildcard" "$log" "^/tmp/w/\*.log$"
+    report "wildcard-no-match" "$log" "^/tmp/w/\*.missing$"
+    report "ls-several-files" "$log" "^2$"
+    report "ls-a" "$log" "^\.\./$"
+    report "ls-la" "$log" "^drwx.* \.\.$"
+    report "ls-one-file" "$log" "^/etc/hello.txt$"
+    report "head-n" "$log" "^root:x:0"
+    report "tail-n" "$log" "^student:x:1000"
+    report "grep-numbers" "$log" "^2:student"
+    report "sort" "$log" "^apple$"
+    report "sort-reverse" "$log" "^pear$"
+    report "sort-numbers" "$log" "^9$"
+    report "chmod-plus-x" "$log" "^-rwxr-xr-x root 0 /tmp/c$"
+    report "chmod-minus-x" "$log" "^-rw-r--r-- root 0 /tmp/c$"
+    report "mkdir-p" "$log" "^r/$"
+    report "find-and-cp-r" "$log" "^/tmp/p2/q/r$"
+    report "find-pattern" "$log" "^/examples/fibonacci.cpp$"
+    report "rm-f" "$log" "^rm-f-ok$"
+    report "rm-r" "$log" "^ls: /tmp/p2: no such file"
+    report "cp-into-folder" "$log" "^/tmp/w/hello.txt$"
+    report "mv-into-folder" "$log" "^/tmp/p/hello.txt$"
+    report "cat-folder-refused" "$log" "^cat: /etc: is a directory$"
+    report "wc-folder-refused" "$log" "^wc: /etc: is a directory$"
+    report "mv-folder-refused" "$log" "^mv: /tmp/p: folders can't be moved$"
+    report "mv-folder-no-junk" "$log" "^ls: /tmp/p3: no such file"
+    report "uname" "$log" "^OS Project 1.0 i386$"
+    report "date" "$log" "^20[0-9][0-9]-[01][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9] UTC$"
+    report "df" "$log" "^ext2 65536 [0-9]* [0-9]* /$"
+    report "top-stops-on-ctrl-c" "$log" "^after-top$"
+    report "history" "$log" "^[0-9]*  uname -a$"
+    report "tilde" "$log" "^/home/student/x$"
+    report "cd-goes-home" "$log" "^/home/student$"
+    report "cp-same-file-refused" "$log" "^cp: /tmp/same.txt: same file"
+    report "mv-same-file-refused" "$log" "^mv: /tmp/same.txt: same file"
+    report "same-file-kept" "$log" "^keep-me$"
+    report "head-n-joined" "$log" "^alpha$"
+    report "tail-n-joined" "$log" "^beta$"
+    report "cp-read-only-source" "$log" "^-r--r--r-- student"
+    report "mkdir-p-as-student" "$log" "^b/$"
+}
+
+# A fork bomb must end only the programs in it, not the whole OS.
+forkbomb_test() {
+    local log=build/test-forkbomb.log
+
+    SHELL_DELAY=4 shell_test forkbomb tests/forkbomb-commands.txt "^after-bomb"
+    report "fork-limit" "$log" "^fork gave -11 after"
+    if grep -q "KERNEL PANIC" "$log"; then
+        echo "FAIL  fork bomb panicked the kernel"
+        failed=$((failed + 1))
+    else
+        echo "PASS  fork bomb left the kernel running"
+        passed=$((passed + 1))
+    fi
+}
+
 # Presses each key through QEMU's real keyboard.
 press_keys() {
     for key in "$@"; do
@@ -323,7 +391,9 @@ shell_test shell tests/shell-commands.txt "shell-commands-done"
 SHELL_WAIT=3 shell_test forktest tests/forktest-commands.txt "TEST-PASS forktest"
 login_test
 tools_test
+commands_test
 compiler_test
+forkbomb_test
 shell_test tmptest tests/tmptest-commands.txt "TEST-PASS tmptest"
 SHELL_WAIT=70 shell_test swaptest tests/swaptest-commands.txt "TEST-PASS swaptest"
 SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"

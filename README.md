@@ -37,18 +37,27 @@ Type `help` in the shell to see everything.
 
 | Area | Commands |
 | --- | --- |
-| Files | `ls`, `ls -l`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `grep`, `wc` |
+| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `tail`, `grep`, `sort`, `wc`, `find` |
 | Editing | `edit file.txt` |
 | C++ | `c++ file.cpp -o name`, `run file.cpp` |
-| System | `ps`, `free`, `kill`, `sleep`, `whoami`, `chmod`, `clear` |
+| System | `ps`, `top`, `free`, `df`, `kill`, `sleep`, `whoami`, `chmod`, `date`, `uname`, `clear`, `history` |
+
+The usual options work: `ls -la`, `kill -9 5`, `wc -l`, `head -n 5`, `tail -n 5`,
+`grep -i`, `grep -v`, `grep -n`, `sort -r`, `sort -n`, `chmod +x`, `mkdir -p`,
+`rm -r`, `rm -f`, `cp -r`.
 
 The shell has pipes (`ls / | wc`), redirection (`echo hi > a.txt`, `cat < a.txt`,
-`echo more >> a.txt`) and background programs (`sleep 30 &`). Press the Up and
+`echo more >> a.txt`), background programs (`sleep 30 &`), quotes (`echo "a  b"`),
+several commands on a line (`cd /tmp ; ls`, `mkdir a && cd a`), wildcards
+(`ls /etc/*.txt`) and `~` for your home folder. Press the Up and
 Down arrows for old commands, Left and Right to move along a line, Backspace,
 Delete, Home and End to edit it, and Ctrl+C to stop a program. `keytest` shows the
 code for each key, which helps if a key doesn't seem to work.
 
 Try `cat /proc/meminfo` and `cat /proc/processes`. Files in `/tmp` live in RAM.
+
+One program can't take the whole OS down by starting too many processes: `fork`
+fails after 64, and Ctrl+C stops them all.
 
 ## Writing C++ inside the OS
 

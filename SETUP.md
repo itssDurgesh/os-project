@@ -191,12 +191,12 @@ Type `help` to see the commands, and `exit` to log out.
 
 | Area | Commands |
 | --- | --- |
-| Files | `ls`, `ls -l`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `grep`, `wc` |
+| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `tail`, `grep`, `sort`, `wc`, `find` |
 | Folders | `cd`, `pwd` |
 | Editing | `edit file.txt` |
 | C++ | `c++ file.cpp -o name`, `run file.cpp` |
-| System | `ps`, `free`, `kill`, `sleep`, `whoami`, `chmod`, `clear`, `keytest` |
-| Shell | `a \| b`, `a > file`, `a >> file`, `a < file`, `a &` |
+| System | `ps`, `top`, `free`, `df`, `kill`, `sleep`, `whoami`, `chmod`, `date`, `uname`, `clear`, `history`, `keytest` |
+| Shell | `a \| b`, `a > file`, `a >> file`, `a < file`, `a &`, `a ; b`, `a && b`, `"quotes"`, `*.txt`, `~` |
 
 **Keys:** Up and Down bring back old commands. Left, Right, Backspace, Delete, Home
 and End edit the line. Ctrl+C stops a program. In the editor, Ctrl+S saves and

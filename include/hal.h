@@ -117,6 +117,18 @@ void pic_eoi(uint8_t irq);
 void timer_init(uint32_t hz);
 uint32_t get_ticks();
 
+// Real-time clock
+struct RealTime {
+    int year;
+    int month;
+    int day;
+    int hour;
+    int minute;
+    int second;
+};
+
+void rtc_read(RealTime *time);
+
 // PCI
 struct PciLocation {
     uint8_t bus;

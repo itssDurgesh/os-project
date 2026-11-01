@@ -56,7 +56,7 @@
 | Many children, no zombies | `forktest` | `TEST-PASS forktest` |
 | Signals | `sigtest` | `TEST-PASS sigtest` |
 | Message queues | `ipctest` | `TEST-PASS ipctest` |
-| CPU quotas | `quotatest` | `cpu ticks without quota: 200, with quota: 50` (the second number is 50 or 60) |
+| CPU quotas | `quotatest` | `cpu ticks without quota: 200, with quota: 50` (the second number is about 50 to 60) |
 | A real zombie | See program 1 below | A line in `ps` with the state `zombie` |
 | Round-Robin sharing | See program 2 below | Two `spin` lines in `ps` with similar CPU numbers |
 | `fork` from your own program | See program 3 below | `I am the child`, then `I am the parent, my child was N` |

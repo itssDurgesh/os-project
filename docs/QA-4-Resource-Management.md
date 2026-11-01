@@ -49,7 +49,7 @@
 | --- | --- | --- |
 | Semaphores and shared memory | `ipctest` | `shared counter: 12000`, then `TEST-PASS ipctest` |
 | Banker's Algorithm | `banktest` | `unsafe request is waiting, as it should`, then `request granted once it was safe` |
-| CPU quota | `quotatest` | `cpu ticks without quota: 200, with quota: 50` (the second number is 50 or 60) |
+| CPU quota | `quotatest` | `cpu ticks without quota: 200, with quota: 50` (the second number is about 50 to 60) |
 | Keyboard codes | `keytest`, press keys, press `q` | The number for each key |
 | Disk driver mode | Boot message | `Disk: using DMA` |
 | Ctrl+C | `sleep 100`, then Ctrl+C | The prompt returns |
@@ -250,9 +250,9 @@ There are 8 pipes. The parent declares 6 and holds 4. The child declares 6 and a
 `cpu_quota` is the ticks allowed per second. When a process reaches it, `switch_process_if_needed` puts it in `over_quota` until the next second.
 
 **60. What did `quotatest` show?**
-Over 2 seconds, a busy process got 200 ticks with no quota. With a quota of 20 per second it got 50 or 60, depending on the run.
+Over 2 seconds, a busy process got 200 ticks with no quota. With a quota of 20 per second it got about 50 to 60, depending on the run.
 
-**61. Why 50 or 60 and not 40?**
+**61. Why about 50 to 60 and not 40?**
 The run can touch three 1-second windows, which allows up to 60. The test accepts up to 65.
 
 ---

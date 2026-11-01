@@ -63,7 +63,7 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 | Show swapping | `swaptest` | Passes, with real swap numbers |
 | Show IPC | `ipctest` | `shared counter: 12000` |
 | Show deadlock avoidance | `banktest` | Unsafe request waits, then is granted |
-| Show CPU limits | `quotatest` | Ticks limited to 50 or 60 |
+| Show CPU limits | `quotatest` | Ticks limited to about 50 to 60 |
 
 ---
 
@@ -162,6 +162,7 @@ Lab exercises that use structs, 2D arrays or decimals won't compile in the OS. A
 | Writing to a bad address | `segmentation fault at ..., process ended` | Good: the OS stays up |
 | 240 MB program (RAM is 128 MB, swap 32 MB) | `out of memory`, then the program ended. Memory returned to normal | Good: the OS stays up |
 | Fork bomb | `fork` fails at 64 processes. Ctrl+C stops them all, and the shell carries on | Good: the OS stays up |
+| Fork bomb in the background (`/tmp/bomb &`) | The OS stays up, but background programs ignore Ctrl+C, and the shell prints `too many processes` for every command | **Weak: you have to restart QEMU** |
 
 **Fork bomb program:**
 

@@ -217,7 +217,7 @@ To force a process to stop, type `kill -9 4`.
 | --- | --- |
 | `ipctest` | `shared counter: 12000`, which is exactly 4 × 3,000 |
 | `banktest` | `unsafe request is waiting, as it should`, then `request granted once it was safe` |
-| `quotatest` | `cpu ticks without quota: 200, with quota: 50` (or 60) |
+| `quotatest` | `cpu ticks without quota: 200, with quota: 50` (the second number is about 50 to 60) |
 | `keytest`, press `a`, press `q` | `97`, the code for `a` |
 
 **Be ready for this:** Banker's is a separate set of calls, and it doesn't control real `pipe()` calls. Say so before you're asked.

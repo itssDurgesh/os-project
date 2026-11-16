@@ -29,7 +29,7 @@ QEMU_FLAGS := -machine pc -cpu qemu32 -m 128M \
 
 .PRECIOUS: $(BUILD)/user/bin/%.o
 
-.PHONY: all run test dist clean
+.PHONY: all run run-window test dist clean
 
 all: $(IMAGE)
 
@@ -83,7 +83,18 @@ $(IMAGE): $(KERNEL) boot/grub.cfg tools/mkimage.sh $(ROOTFS).stamp
 	grub-file --is-x86-multiboot $<
 	bash tools/mkimage.sh $(KERNEL) boot/grub.cfg $(ROOTFS) $@
 
+# Runs the OS right here in the Ubuntu terminal: no window opens. The virtual
+# PC's serial port is joined to this terminal, so you type to the OS directly.
 run: $(IMAGE)
+	@echo ""
+	@echo "Starting the OS Project in this terminal..."
+	@echo "Log in as root (password root) or student (password student)."
+	@echo "To leave: type shutdown as root, or press Ctrl+A and then X."
+	@echo ""
+	@$(QEMU) $(QEMU_FLAGS) -nographic
+
+# The old way, in a separate window, for anyone who wants to see the VGA screen.
+run-window: $(IMAGE)
 	$(QEMU) $(QEMU_FLAGS) -serial stdio
 
 # Boots the kernel once per test without a window.

@@ -3,7 +3,9 @@
 This guide explains how the code is organised, what each file does, which system calls exist, and how files call each other.
 
 **Code version:** commit `9e9ae97` on `main` of the private repo `itssDurgesh/os-project`.
-**Size:** 149 files and about 17,000 lines. The code is C++ and NASM assembly, for 32-bit x86, and it runs in QEMU.
+**Size:** about 158 files and 17,800 lines. The code is C++ and NASM assembly, for 32-bit x86. It runs in QEMU, which `make run` starts inside the WSL Ubuntu terminal with no window (`-nographic`): the PC's serial port is joined to the terminal.
+
+**Added on 15 November 2026:** process memory reports, 4 new system calls (50 to 53), and the `spawn`, `mem`, `pmap`, `lsof`, `resources`, `stat` and `shutdown` commands. See `memory/process_memory.cpp`.
 
 ## Contents
 
@@ -60,7 +62,7 @@ Each folder belongs to one teammate.
 | `resource/` | Resource Management | 7 | 1,096 | Disk, keyboard, mouse and screen drivers, locks, Banker's |
 | `storage/` | Storage Hierarchy | 2 | 246 | Partition table, buffer cache, swap slots |
 | `fs/` | File Handling | 8 | 3,017 | VFS, ext2, devfs, tmpfs, procfs, open files, pipes |
-| `user/` | Integration | 50 | 6,592 | C library and 44 programs, including the shell and C++ compiler |
+| `user/` | Integration | 57 | about 7,100 | C library and 51 programs, including the shell and C++ compiler |
 | `tests/` | Everyone | 18 | 648 | `run.sh` and the commands it types into the OS |
 | `tools/` | Integration | 3 | 120 | Scripts that build the disk image |
 | `package/` | Integration | 2 | 43 | `run.bat` and the README for the Windows ZIP |
@@ -84,7 +86,7 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `tools/mkimage.sh` | Builds `os.img`: MBR, GRUB, 3 partitions | `make_ext2` |
 | `tools/mkusers.py` | Writes `/etc/passwd` and `/etc/shadow` | salted SHA-256 |
 | `tools/mkbigfile.py` | Writes the 5 MB test file `/etc/big.bin` | used by the `disk` test |
-| `package/run.bat` | Starts QEMU on Windows | not tested on Windows yet |
+| `package/run.bat` | Starts QEMU on Windows | passed on the build laptop, not yet tested on the other 5 |
 
 ### 3.2 Hardware layer (`hal/`, `include/hal.h`)
 
@@ -99,7 +101,7 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `hal/pit.cpp` | The 100 Hz timer | `timer_init`, `get_ticks`, `timer_interrupt` |
 | `hal/pci.cpp` | Finds devices on the PCI bus | `pci_read`, `pci_write`, `pci_find_device` |
 | `hal/rtc.cpp` | Reads the date and time from the real-time clock chip | `rtc_read` |
-| `hal/serial.cpp` | COM1 port. Kernel output also goes here, and this is `boot.log` | `serial_init`, `serial_putc`, `serial_enable_input`, `qemu_exit` |
+| `hal/serial.cpp` | COM1 port, joined to the Ubuntu terminal by `make run`. Kernel output also goes here, and this is `boot.log`. Also turns the PC off through ACPI | `serial_init`, `serial_putc`, `serial_enable_input`, `qemu_exit`, `power_off` |
 
 ### 3.3 Kernel core (`kernel/`)
 
@@ -119,8 +121,8 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `include/process.h` | The PCB (`struct Process`) and `class WaitQueue` | |
 | `process/sched.cpp` | Priority Round-Robin, aging, quotas, kernel threads, wait queues | `schedule`, `scheduler_tick`, `switch_process_if_needed`, `pick_next`, `make_ready`, `age_ready_queues`, `thread_create`, `thread_exit`, `thread_sleep`, `create_process`, `delete_process`, `WaitQueue::sleep`, `WaitQueue::wake_one`, `WaitQueue::wake_all` |
 | `process/switch.asm` | The context switch | `switch_stacks` |
-| `process/process.cpp` | ELF loader, and exec, fork, exit, wait | `process_exec`, `process_fork`, `process_exit`, `process_wait`, `process_fault`, `process_start_first` |
-| `process/sys_process.cpp` | Process system calls | `sys_fork`, `sys_exec`, `sys_wait`, `sys_pipe`, and others |
+| `process/process.cpp` | ELF loader, and exec, fork, exit, wait. Calls the memory reports when `report_memory` is on | `process_exec`, `process_fork`, `process_exit`, `process_wait`, `process_fault`, `process_start_first` |
+| `process/sys_process.cpp` | Process system calls | `sys_fork`, `sys_exec`, `sys_wait`, `sys_pipe`, `sys_shutdown`, and others |
 | `process/signal.cpp` | Signals | `send_signal`, `deliver_signals`, `start_handler`, `sys_kill`, `sys_sigaction`, `sys_sigreturn` |
 | `process/message_queue.cpp` | Message queues | `sys_msgget`, `sys_msgsnd`, `sys_msgrcv` |
 
@@ -137,6 +139,7 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `memory/kmalloc.cpp` | General kernel allocator and C++ `new`/`delete` | `kmalloc`, `kfree`, `kmalloc_zeroed` |
 | `memory/shared_memory.cpp` | Shared memory segments | `sys_shmget`, `sys_shmat`, `sys_shmdt` |
 | `memory/sys_memory.cpp` | Heap and `mmap` system calls | `sys_brk`, `sys_sbrk`, `sys_mmap`, `sys_munmap` |
+| `memory/process_memory.cpp` | What each process has been given: memory areas, pages in RAM and swap, page tables, kernel stack, files and resources. Prints the `memlog` lines at exec and exit | `fill_process_memory`, `count_pages`, `area_kind`, `sys_procmem`, `sys_memreport`, `report_new_program`, `report_process_end` |
 
 ### 3.6 Resource Management (`resource/`, `include/sync.h`, `include/input.h`)
 
@@ -166,7 +169,7 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `include/vfs.h` | Base classes `Inode` and `File` | |
 | `fs/vfs.cpp` | Path walking, mount table, permission check | `walk`, `vfs_lookup`, `vfs_create_path`, `vfs_check_permission`, `vfs_mount`, `follow_mounts` |
 | `fs/file.cpp` | Global open-file objects | `file_open`, `file_close`, `file_read`, `file_write`, `file_seek`, class `InodeFile` |
-| `fs/sys_file.cpp` | File system calls | `sys_open`, `sys_read`, `sys_write`, `sys_stat`, `sys_chdir`, `sys_dup2`, and others |
+| `fs/sys_file.cpp` | File system calls. `sys_open` saves the full path in the `File`, for `lsof` | `sys_open`, `sys_read`, `sys_write`, `sys_stat`, `sys_chdir`, `sys_dup2`, `sys_procfile`, `remember_file_name`, and others |
 | `fs/ext2.cpp` | The real disk filesystem | `ext2_mount`, `map_block`, `read_data`, `write_data`, `alloc_block`, `find_entry`, `add_entry`, class `Ext2Inode` |
 | `fs/devfs.cpp` | `/dev`: console, input, null, mouse, with line editing and history | `devfs_mount`, `read_line`, `console_set_echo`, classes `ConsoleDevice`, `RawInputDevice`, `NullDevice`, `MouseDevice` |
 | `fs/tmpfs.cpp` | `/tmp`, stored in RAM | `tmpfs_mount`, class `TmpInode` |
@@ -194,18 +197,20 @@ The top folder also has the `Makefile` (build rules), `linker.ld` (kernel memory
 | `user/users.cpp` | Reads `/etc/passwd`, and checks passwords against `/etc/shadow` |
 | `user/sha256.cpp` | SHA-256 hash |
 
-**Programs in `user/bin/` (44):**
+**Programs in `user/bin/` (51):**
 
 | Group | Programs |
 | --- | --- |
 | Start-up | `init` (PID 1), `login`, `sh` (shell) |
-| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `tail`, `grep`, `sort`, `wc`, `find`, `chmod` |
-| System | `ps`, `top`, `free`, `df`, `kill`, `sleep`, `whoami`, `pwd`, `echo`, `clear`, `date`, `uname` |
+| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `stat`, `head`, `tail`, `grep`, `sort`, `wc`, `find`, `chmod` |
+| Processes and memory | `ps`, `top`, `spawn`, `kill`, `sleep`, `mem`, `pmap`, `free` |
+| Resources | `resources`, `lsof`, `df` |
+| System | `whoami`, `pwd`, `echo`, `clear`, `date`, `uname`, `shutdown` |
 | Tools | `edit` (text editor), `c++` (compiler), `run` (compile and start) |
 | Hardware checks | `keytest`, `mousetest` |
 | Tests | `forktest`, `fstest`, `swaptest`, `sigtest`, `ipctest`, `banktest`, `quotatest`, `permtest`, `tmptest` |
 
-`cd`, `help`, `history` and `exit` are not programs. The shell runs them itself, because `cd` must change the shell's own folder and `history` reads the shell's own list.
+`cd`, `help`, `history`, `memlog` and `exit` are not programs. The shell runs them itself, because `cd` must change the shell's own folder, `history` reads the shell's own list, and `memlog` turns memory reports on for the shell, so every command it starts inherits them.
 
 **How the shell in `user/bin/sh.cpp` reads a line:**
 
@@ -241,7 +246,7 @@ Example: a program calls `read(fd, buffer, 100)`.
 
 **Argument registers:** `EBX`, `ECX`, `EDX`, `ESI`, `EDI`. **Errors** come back as negative numbers, such as `-ENOENT` (-2).
 
-### 4.2 All 49 system calls
+### 4.2 All 53 system calls
 
 The numbers are in `include/abi.h`, and the table is filled in `syscall_init` in `kernel/syscall.cpp`.
 
@@ -268,6 +273,7 @@ The numbers are in `include/abi.h`, and the table is filled in `syscall_init` in
 | 44 | `setgid` | `process/sys_process.cpp` | root only | `login`, `permtest` |
 | 46 | `procinfo` | `process/sys_process.cpp` | walks the process list | `ps`, `top`, `quotatest` |
 | 48 | `set_quota` | `process/sys_process.cpp` | sets `cpu_quota`, root only | `quotatest` |
+| 53 | `shutdown` | `process/sys_process.cpp` | `power_off`, root only | `shutdown` |
 
 **Memory Management**
 
@@ -280,7 +286,9 @@ The numbers are in `include/abi.h`, and the table is filled in `syscall_init` in
 | 31 | `shmget` | `memory/shared_memory.cpp` | allocates frames | `ipctest`, `banktest` |
 | 32 | `shmat` | `memory/shared_memory.cpp` | `paging_map` with `PTE_SHARED` | `ipctest`, `banktest` |
 | 33 | `shmdt` | `memory/shared_memory.cpp` | `detach_slot` | `ipctest` |
-| 49 | `meminfo` | `memory/virtual_memory.cpp` | `get_memory_info` | `free`, `top`, `swaptest` |
+| 49 | `meminfo` | `memory/virtual_memory.cpp` | `get_memory_info` | `free`, `top`, `mem`, `swaptest` |
+| 50 | `procmem` | `memory/process_memory.cpp` | `fill_process_memory`: areas, pages in RAM and swap, page tables, kernel stack, files, Banker's resources | `ps`, `top`, `mem`, `pmap`, `spawn`, `kill`, `resources`, `lsof` |
+| 52 | `memreport` | `memory/process_memory.cpp` | sets `report_memory` in the PCB, which `fork` copies to the child | `memlog` in `sh` |
 
 **File Handling**
 
@@ -301,6 +309,7 @@ The numbers are in `include/abi.h`, and the table is filled in `syscall_init` in
 | 26 | `dup2` | `fs/sys_file.cpp` | copies an FD | `sh`, for pipes and redirection |
 | 45 | `set_echo` | `fs/sys_file.cpp` | `console_set_echo`, root only | `login`, hides the password |
 | 47 | `chmod` | `fs/sys_file.cpp` | `Inode::sync` | `chmod` |
+| 51 | `procfile` | `fs/sys_file.cpp` | reads one entry of a process's FD table | `lsof` |
 
 **Resource Management**
 
@@ -328,9 +337,14 @@ The numbers are in `include/abi.h`, and the table is filled in `syscall_init` in
 | `cd x` | `chdir` |
 | `pwd` | `getcwd` |
 | `chmod 644 f` | `chmod` |
-| `ps` | `procinfo` |
+| `ps` | `procinfo`, `procmem` |
 | `free` | `meminfo` |
-| `kill 5 9` | `kill` |
+| `mem`, `pmap 5`, `resources` | `procinfo`, `procmem`, `meminfo` |
+| `lsof` | `procinfo`, `procfile` |
+| `stat file` | `stat` |
+| `spawn sleep 60` | `stat`, `fork`, `exec`, `procmem` |
+| `shutdown` | `shutdown` |
+| `kill 5 9` | `procmem`, `kill` |
 | `sleep 2` | `sleep` |
 | `a \| b` | `pipe`, `dup2`, `fork` (twice) |
 | `a > file` | `open`, `dup2` |

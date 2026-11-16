@@ -163,6 +163,10 @@ static void keyboard_interrupt(Registers *r)
 
 static void serial_received(char c)
 {
+    // A terminal sends Enter as '\r', but the shell waits for '\n'.
+    if (c == '\r')
+        c = '\n';
+
     input_put_char(c);
 }
 

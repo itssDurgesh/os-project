@@ -144,6 +144,20 @@ void shared_memory_detach_all(Process *process)
     }
 }
 
+// For pmap: where a process's shared segment in this slot is, and how big.
+// Returns false if nothing is attached in the slot.
+bool shared_memory_slot(const Process *process, int slot, uint32_t *start, uint32_t *pages)
+{
+    int value = process->attached_segments[slot];
+
+    if (value == 0)
+        return false;
+
+    *start = slot_address(slot);
+    *pages = all_segments[value - 1].page_count;
+    return true;
+}
+
 // After fork the child can use the same segments, so they have one more user.
 void shared_memory_copy_to_child(Process *parent, Process *child)
 {

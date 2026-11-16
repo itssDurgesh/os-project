@@ -20,6 +20,9 @@ class Inode;
 
 #define MAX_ATTACHED_SEGMENTS 4
 
+#define KERNEL_STACK_PAGES 2  // every process gets 8 KB of kernel stack
+#define KERNEL_STACK_SIZE  (KERNEL_STACK_PAGES * PAGE_SIZE)
+
 #define TIME_QUANTUM_TICKS 2  // 2 ticks of 10 ms = 20 ms
 #define AGING_LIMIT_TICKS  100  // 1 second in a ready queue moves a process up
 
@@ -99,6 +102,10 @@ struct Process {
     uint32_t cpu_quota;
     uint32_t ticks_this_second;
 
+    // When true, the kernel prints what memory this process gets when it starts
+    // a program and what it gives back when it ends. Children inherit it.
+    bool report_memory;
+
     void (*entry)(void *);
     void *argument;
 
@@ -152,5 +159,13 @@ void deliver_signals(Registers *r);
 void shared_memory_detach_all(Process *process);
 void shared_memory_copy_to_child(Process *parent, Process *child);
 void banker_process_exit(Process *process);
+void banker_get_totals(int total[RESOURCE_TYPES], int available[RESOURCE_TYPES]);
+bool shared_memory_slot(const Process *process, int slot, uint32_t *start, uint32_t *pages);
+
+// Memory reports (memory/process_memory.cpp)
+void fill_process_memory(Process *process, struct procmem *info);
+uint32_t process_pages_in_ram(Process *process);
+void report_new_program(Process *process, const char *path);
+void report_process_end(Process *process, int status);
 
 #endif

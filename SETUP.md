@@ -2,20 +2,24 @@
 
 This guide explains how to set up and run the OS on a Windows 11 laptop.
 
-The OS runs inside an emulator, so it can't change Windows or your files. Never
-install it directly on a laptop. It's made for old BIOS PCs with IDE disks, so it
-won't start on a modern laptop, and writing it to a real disk could erase Windows.
+The OS runs right inside the Ubuntu (WSL) terminal: you type your commands there
+and its output appears there, with no extra window. Underneath, a small emulator
+(QEMU) pretends to be an old PC, but it runs quietly in the background. That keeps
+Windows and your files safe. Never install the OS directly on a laptop. It's made
+for old BIOS PCs with IDE disks, so it won't start on a modern laptop, and writing
+it to a real disk could erase Windows.
 
 ## Choose a method
 
 | Method | Use it if | Needs | Status |
 | --- | --- | --- | --- |
-| [1. Run the ready-made OS in Ubuntu](#method-1-run-the-ready-made-os-in-ubuntu) | You just want to use the OS | `os-demo.zip` | Tested |
-| [2. Build it from the source code](#method-2-build-it-from-the-source-code) | You want to change the code | Access to the GitHub repo | Tested |
-| [3. QEMU for Windows](#method-3-qemu-for-windows) | You don't want to install Ubuntu | `os-demo.zip` | Not tested yet |
-| [4. VirtualBox](#method-4-virtualbox) | You already use VirtualBox | `os-demo.zip` | Not tested yet |
+| [1. Run the ready-made OS in Ubuntu](#method-1-run-the-ready-made-os-in-ubuntu) | You just want to use the OS | `os-demo.zip` | Tested, runs in the terminal |
+| [2. Build it from the source code](#method-2-build-it-from-the-source-code) | You want to change the code | Access to the GitHub repo | Tested, runs in the terminal |
+| [3. QEMU for Windows](#method-3-qemu-for-windows) | You can't install Ubuntu | `os-demo.zip` | Backup only: opens a window, tested on one laptop |
+| [4. VirtualBox](#method-4-virtualbox) | You already use VirtualBox | `os-demo.zip` | Backup only: opens a window, not tested yet |
 
-Start with Method 1 if you aren't sure. Get `os-demo.zip` from the project owner.
+Use Method 2 if you can, otherwise Method 1. Both run the OS in the Ubuntu
+terminal. Get `os-demo.zip` from the project owner.
 
 ## Which terminal am I in?
 
@@ -50,28 +54,30 @@ Replace `YOUR_WINDOWS_NAME` with the name of your folder in `C:\Users`.
 
 ```bash
 sudo apt update
-sudo apt install -y qemu-system-x86 qemu-system-gui unzip
+sudo apt install -y qemu-system-x86 unzip
 mkdir -p ~/os
 cp /mnt/c/Users/YOUR_WINDOWS_NAME/Downloads/os-demo.zip ~/os/
 cd ~/os
 unzip -o os-demo.zip
 ```
 
-Start the OS. A window opens with a login prompt:
+Start the OS. It boots in this terminal and shows a login prompt:
 
 ```bash
-qemu-system-i386 -machine pc -cpu qemu32 -m 128M -drive file=os.img,format=raw,if=ide -snapshot -no-reboot
+qemu-system-i386 -machine pc -cpu qemu32 -m 128M -drive file=os.img,format=raw,if=ide -snapshot -no-reboot -nographic
 ```
 
-Changes are thrown away when you close the window. To keep your files between runs,
-leave out `-snapshot`:
+To leave, log in as root and type `shutdown`, or press **Ctrl+A** and then **X**.
+You are back at the Ubuntu prompt.
+
+Changes are thrown away when the OS turns off. To keep your files between runs,
+leave out `-snapshot`, and always leave with `shutdown` so nothing is cut off:
 
 ```bash
-qemu-system-i386 -machine pc -cpu qemu32 -m 128M -drive file=os.img,format=raw,if=ide -no-reboot
+qemu-system-i386 -machine pc -cpu qemu32 -m 128M -drive file=os.img,format=raw,if=ide -no-reboot -nographic
 ```
 
-Before closing the window, type `exit` and wait a moment. Next time, start from step
-`cd ~/os`.
+Next time, start from step `cd ~/os`.
 
 ## Method 2: Build it from the source code
 
@@ -101,11 +107,13 @@ GitHub doesn't accept your password here, so it needs a personal access token.
 sed 's/#.*//' requirements.txt | xargs sudo apt install -y
 ```
 
-**4. Build and start the OS:**
+**4. Build and start the OS** in this terminal:
 
 ```bash
 make run
 ```
+
+To leave, log in as root and type `shutdown`, or press **Ctrl+A** and then **X**.
 
 Keep the code in your Ubuntu home folder and not in `/mnt/c`, because it builds
 faster there and a space in a folder name can break the Makefile.
@@ -113,7 +121,8 @@ faster there and a space in a folder name can break the Makefile.
 | Command | What it does |
 | --- | --- |
 | `make` | Builds the kernel, the programs and the disk image |
-| `make run` | Builds and starts the OS |
+| `make run` | Builds and starts the OS in this terminal |
+| `make run-window` | Starts it in a separate window instead |
 | `make test` | Runs every automatic test (about 6 minutes) |
 | `make dist` | Makes `build/os-demo.zip` to share |
 | `make clean` | Deletes everything that was built |
@@ -140,7 +149,9 @@ it's ready, the bottom-left corner shows **WSL: Ubuntu**.
 
 ## Method 3: QEMU for Windows
 
-This method hasn't been tested yet.
+Only use this if Ubuntu won't install. The OS opens in its own window instead of a
+terminal. This method has been tested on one Windows 11 laptop, with QEMU 11.1.0. Use that
+version, even though the README in the ZIP says 10.2.1.
 
 1. Install the 64-bit version from <https://www.qemu.org/download/#windows> and keep
    the default install folder.
@@ -187,20 +198,38 @@ Log in with a demo account. The password stays hidden while you type it.
 | `student` | `student` | Normal user, limited by file permissions |
 
 These accounts belong to the OS, so your Windows or Ubuntu password won't work.
-Type `help` to see the commands, and `exit` to log out.
+Type `help` to see the commands, `exit` to log out, and `shutdown` (as root) to
+turn the OS off.
 
 | Area | Commands |
 | --- | --- |
-| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `tail`, `grep`, `sort`, `wc`, `find` |
+| Processes | `ps`, `top`, `spawn <program>`, `kill [-9] <pid>`, `sleep`, `program &` |
+| Memory | `mem`, `pmap <pid>`, `free`, `memlog on` / `memlog off` |
+| Resources | `resources`, `lsof [pid]`, `df`, `banktest`, `ipctest` |
+| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `stat`, `head`, `tail`, `grep`, `sort`, `wc`, `find`, `chmod` |
 | Folders | `cd`, `pwd` |
 | Editing | `edit file.txt` |
 | C++ | `c++ file.cpp -o name`, `run file.cpp` |
-| System | `ps`, `top`, `free`, `df`, `kill`, `sleep`, `whoami`, `chmod`, `date`, `uname`, `clear`, `history`, `keytest` |
+| System | `whoami`, `date`, `uname`, `clear`, `history`, `keytest`, `shutdown` |
 | Shell | `a \| b`, `a > file`, `a >> file`, `a < file`, `a &`, `a ; b`, `a && b`, `"quotes"`, `*.txt`, `~` |
 
 **Keys:** Up and Down bring back old commands. Left, Right, Backspace, Delete, Home
 and End edit the line. Ctrl+C stops a program. In the editor, Ctrl+S saves and
 Ctrl+Q quits.
+
+### Watch processes get and give back memory
+
+```text
+spawn sleep 60      creates a background process: prints its PID and memory table
+sleep 60 &          also runs in the background (plain `sleep 60` waits for it)
+ps                  every process: PID, state, MEM KB and RAM KB
+mem                 memory of every process, and a RAM bar
+pmap 5              each part of process 5's memory (use the PID spawn printed)
+lsof                every open file of every process
+resources           files, shared memory and Banker's resources per process
+kill 5              deletes process 5 and shows the RAM freed
+memlog on           one table row for every command you start
+```
 
 ### Write and run a C++ program
 
@@ -237,8 +266,10 @@ without `-snapshot` and save in another folder, such as `/home/student`.
 | `The token '&&' is not a valid statement separator` | You're in PowerShell. Type `wsl ~` first. |
 | `Login incorrect` | Use `root` / `root` or `student` / `student`. The password box is the second prompt. |
 | `no such file or directory` when saving | The folder doesn't exist. The temp folder is `/tmp`, not `/temp`. |
-| The keyboard does nothing | Click inside the QEMU window first. |
-| The mouse is stuck in the window | Press Ctrl+Alt+G. |
+| You can't get out of the OS | Press Ctrl+A, let go, then press X. Or log in as root and type `shutdown`. |
+| `make run` says `qemu-system-i386: not found` | Install the tools from Method 2, step 3. |
+| The keyboard does nothing (Methods 3 and 4) | Click inside the window first. |
+| The mouse is stuck in the window (Methods 3 and 4) | Press Ctrl+Alt+G. |
 | A key doesn't work | Run `keytest` in the OS and press the key. An arrow key should show 27, 91, and a letter. |
 | Your files disappeared | That run used `-snapshot`, which throws changes away. |
 | Windows blocks QEMU or `run.bat` | Send a screenshot to the project owner. Don't turn off Smart App Control. |

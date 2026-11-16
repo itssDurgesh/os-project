@@ -323,6 +323,18 @@ A new page directory, memory areas, and the first stack pages.
 **80. How do you protect system calls?**
 `user_range_valid` and `copy_string_from_user`, used by the handlers in `fs/`, `process/`, `resource/` and `memory/`.
 
+**81. How do you show the memory given to each process?**
+`mem` shows a table of every process: code, data, heap, stack, mmap and shared memory in KB, then RAM and swap. `pmap 5` shows each area of process 5 with its start and end address. `ps` shows MEM KB and RAM KB.
+
+**82. Where do those numbers come from?**
+The `procmem` system call (number 50) runs `fill_process_memory` in `memory/process_memory.cpp`. It reads the process's `MemoryArea` list from its PCB and labels each one: the heap area is heap, an area ending at `0xC0000000` is the stack, a file area is code (read-only) or data (writable), and the rest is mmap. `count_pages` then looks up each page in the page table to count pages in RAM and in swap.
+
+**83. Why is a process's MEM KB much bigger than its RAM KB?**
+Demand paging. `exec` reserves 1 MB of stack and the program's code, but only loads 3 stack pages. Other pages arrive on their first page fault, so `sleep` reserves 1040 KB but uses about 20 KB of RAM.
+
+**84. What does `memlog on` do?**
+It calls the `memreport` system call, which sets `report_memory` in the shell's PCB. `fork` copies it to each child. Then `exec` prints a `[created]` table row and `exit` prints an `[ended]` line with the RAM freed.
+
 ---
 
 ## Be honest about these

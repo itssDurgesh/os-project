@@ -27,7 +27,7 @@ Start here. These files were written from the real code (commit `9e9ae97`) and c
 
 ## Three things everyone should know
 
-1. **`run.bat` isn't tested on Windows yet.** Do this first.
+1. **`run.bat` has passed on only one Windows laptop.** The other five must run it too.
 2. **The instructor hasn't answered the PRD's 4 open questions.** One is whether GRUB is allowed.
 3. **Banker's Algorithm is a demo.** It doesn't control real pipes, so say so before you're asked.
 

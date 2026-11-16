@@ -1,0 +1,14 @@
+root
+root
+spawn sleep 60
+ps
+pmap 5
+mem
+lsof 5
+resources
+stat /etc/hello.txt
+kill 5
+memlog on
+echo hi
+memlog off
+echo memory-done

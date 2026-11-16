@@ -47,8 +47,16 @@ static void kernel_thread(void *argument)
         return;
     }
 
-    kprintf("OS Project: kernel running.\n");
-    kprintf("%u MB RAM, %u MB free.\n", total_frames() / 256, free_frame_count() / 256);
+    kprintf("\n==============================================================\n");
+    kprintf("  OS Project kernel is running\n");
+    kprintf("==============================================================\n");
+    kprintf("  Memory     %u MB RAM, %u MB free, 4 KB pages, swap on disk\n",
+            total_frames() / 256, free_frame_count() / 256);
+    kprintf("  Processes  up to %d, round-robin with %d priority levels\n",
+            MAX_PROCESSES, NUM_PRIORITIES);
+    kprintf("  Files      ext2 disk on /, /dev, /tmp (in RAM) and /proc\n");
+    kprintf("  Devices    keyboard, serial terminal, mouse, IDE disk, timer\n");
+    kprintf("==============================================================\n");
     kprintf("BOOT-OK\n");
 
     // Step 9: Memory late stage, now that files and disk work.

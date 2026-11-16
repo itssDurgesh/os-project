@@ -49,7 +49,7 @@ Agree on one person to make these.
 | Slide | Title | What to put on it |
 | --- | --- | --- |
 | S1 | Title | Project name, member names, course, date |
-| S2 | What we built | A 32-bit x86 OS in C++, about 17,000 lines, 49 system calls, running in QEMU |
+| S2 | What we built | A 32-bit x86 OS in C++, about 17,800 lines, 53 system calls, running in the WSL Ubuntu terminal (QEMU emulates the PC underneath) |
 | S3 | Architecture | The layer diagram from section 1 of the codebase guide |
 | S4 | Team roles | The table of 6 roles, and how each role connects to the others |
 | S5 | Test results | Clean build with 0 warnings, 110 of 110 checks passed, `e2fsck` clean |
@@ -298,10 +298,10 @@ To force a process to stop, type `kill -9 4`.
 
 | Type | You should see |
 | --- | --- |
-| Start the OS | `Disk: using DMA`, `127 MB RAM, 125 MB free.`, `BOOT-OK`, login prompt |
+| Start the OS with `make run` | `Disk: using DMA`, the `OS Project kernel is running` banner with `127 MB RAM, 125 MB free`, `BOOT-OK`, login prompt |
 | Wrong password | `Login incorrect` |
 | `root` / `root`, then `help` | The command list |
-| `ls /bin \| wc` | `43 43 244` |
+| `ls /bin \| wc` | `50 50 288` |
 | `run /examples/fibonacci.cpp` | `0 1 1 2 3 5 8 13 21 34` |
 | Invalid system call program in [QA-6](QA-6-Integration.md) | `-38` |
 
@@ -315,8 +315,10 @@ If you have one shared demo, use this order. It takes about 5 minutes without `s
 | --- | --- | --- | --- |
 | 1 | Integration | Start the OS, log in as `root` | Boot and login work |
 | 2 | Integration | `ls /bin \| wc` | Shell, pipes, `fork`, `exec` |
-| 3 | Process | `sleep 30 &`, `ps`, then `kill N` | Process states and signals |
-| 4 | Memory | `free` | Page faults so far |
+| 3 | Process | `spawn sleep 60`, `ps`, then `kill N` | A process is created with a PID and memory, shows in `ps`, and is deleted |
+| 4 | Memory | `mem`, then `pmap N` | Code, data, heap and stack of each process, and the RAM really used |
+| 4a | Memory | `memlog on`, `echo hi`, `memlog off` | The kernel reports memory at exec and exit |
+| 4b | Memory | `free` | Page faults so far |
 | 5 | File | `echo saved > /tmp/a.txt`, `cat /tmp/a.txt` | Files and redirection |
 | 6 | File | `ls -l /etc` | Permissions |
 | 7 | Resource | `ipctest` | Shared memory and semaphores |
@@ -328,7 +330,7 @@ If you have one shared demo, use this order. It takes about 5 minutes without `s
 
 | Done | Task |
 | --- | --- |
-| [ ] | QEMU installed on every laptop, and `run.bat` tested |
+| [ ] | WSL Ubuntu set up on every laptop, and `make run` tested in the terminal (build laptop done) |
 | [ ] | Instructor has answered the 4 open questions |
 | [ ] | Slides tried on the projector |
 | [ ] | Demo video recorded as a backup |

@@ -140,3 +140,12 @@ void banker_process_exit(Process *process)
     process->banker_declared = false;
     waiting_for_resources.wake_all();
 }
+
+// For the `resources` command: how many of each resource exist, and how many are free.
+void banker_get_totals(int total[RESOURCE_TYPES], int free_now[RESOURCE_TYPES])
+{
+    for (int type = 0; type < RESOURCE_TYPES; type++) {
+        total[type] = total_resources[type];
+        free_now[type] = available[type];
+    }
+}

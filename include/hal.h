@@ -42,6 +42,11 @@ static inline uint8_t inb(uint16_t port)
     return value;
 }
 
+static inline void outw(uint16_t port, uint16_t value)
+{
+    __asm__ volatile ("outw %0, %1" : : "a"(value), "Nd"(port));
+}
+
 static inline void outl(uint16_t port, uint32_t value)
 {
     __asm__ volatile ("outl %0, %1" : : "a"(value), "Nd"(port));
@@ -147,5 +152,8 @@ void serial_enable_input(void (*callback)(char c));
 
 // Ends a QEMU test run. Does nothing when the test device isn't attached.
 void qemu_exit(uint8_t code);
+
+// Turns the (virtual) computer off through ACPI.
+void power_off() __attribute__((noreturn));
 
 #endif

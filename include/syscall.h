@@ -24,6 +24,7 @@ int sys_setuid(Registers *r);
 int sys_setgid(Registers *r);
 int sys_procinfo(Registers *r);
 int sys_set_quota(Registers *r);
+int sys_shutdown(Registers *r);
 
 // Signals: process/signal.cpp
 int sys_kill(Registers *r);
@@ -58,6 +59,10 @@ int sys_mmap(Registers *r);
 int sys_munmap(Registers *r);
 int sys_meminfo(Registers *r);
 
+// Process memory reports: memory/process_memory.cpp
+int sys_procmem(Registers *r);
+int sys_memreport(Registers *r);
+
 // File Handling: fs/sys_file.c
 int sys_open(Registers *r);
 int sys_close(Registers *r);
@@ -74,5 +79,6 @@ int sys_getcwd(Registers *r);
 int sys_dup2(Registers *r);
 int sys_chmod(Registers *r);
 int sys_set_echo(Registers *r);
+int sys_procfile(Registers *r);
 
 #endif

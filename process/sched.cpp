@@ -10,8 +10,6 @@
 #include "memory.h"
 #include "process.h"
 
-#define KERNEL_STACK_PAGES 2
-#define KERNEL_STACK_SIZE  (KERNEL_STACK_PAGES * PAGE_SIZE)
 #define AGING_CHECK_TICKS  10
 
 #define IDLE_PRIORITY NUM_PRIORITIES  // below every ready queue

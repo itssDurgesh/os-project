@@ -5,13 +5,17 @@
 #define KB_PER_PAGE 4
 #define REFRESH_MS 2000
 
-static const char *state_name(int state)
+static uint32_t ram_in_kb(int pid)
 {
-    static const char *const names[] = {
-        "new", "ready", "running", "waiting", "zombie",
-    };
+    struct procmem info;
+    uint32_t ram = 0;
 
-    return (state >= 0 && state < 5) ? names[state] : "?";
+    if (procmem(pid, &info) < 0)
+        return 0;
+
+    for (uint32_t i = 0; i < info.region_count; i++)
+        ram += info.regions[i].pages_in_ram * KB_PER_PAGE;
+    return ram;
 }
 
 int main()
@@ -27,10 +31,11 @@ int main()
                memory.free_frames * KB_PER_PAGE, memory.total_frames * KB_PER_PAGE,
                memory.swap_slots_used * KB_PER_PAGE);
 
-        printf("PID PPID UID PRI STATE CPU NAME\n");
+        printf("  PID  PPID  UID  STATE     PRI    CPU  RAM KB  NAME\n");
         for (int index = 0; procinfo(index, &info) > 0; index++) {
-            printf("%d %d %d %d %s %u %s\n", info.pid, info.parent_pid, info.uid,
-                   info.priority, state_name(info.state), info.cpu_ticks, info.name);
+            printf("%5d %5d %4d  %-8s %4d %6u %7u  %s\n", info.pid, info.parent_pid,
+                   info.uid, process_state_name(info.state), info.priority,
+                   info.cpu_ticks, ram_in_kb(info.pid), info.name);
         }
 
         sleep(REFRESH_MS);

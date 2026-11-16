@@ -344,7 +344,8 @@ static bool run_pipeline(int count)
     }
 
     if (run_in_background) {
-        printf("[started] process %d\n", pids[count - 1]);
+        printf("[started] process %d (%s) in the background\n", pids[count - 1],
+               commands[count - 1].argv[0]);
         return true;
     }
 
@@ -360,22 +361,48 @@ static void check_finished_programs()
     int status;
     int pid;
 
-    while ((pid = waitpid(0, &status, true)) > 0)
-        printf("[finished] process %d, status %d\n", pid, status);
+    while ((pid = waitpid(0, &status, true)) > 0) {
+        printf("[finished] process %d, status %d", pid, status);
+        if (status > 128 && status < 128 + NUM_SIGNALS)
+            printf(" (stopped by signal %d)", status - 128);
+        printf("\n");
+    }
 }
 
 static void show_help()
 {
-    printf("Files:    ls, cat, cp, mv, rm, touch, mkdir, rmdir, edit, head, tail, grep,\n");
-    printf("          sort, wc, find\n");
-    printf("Folders:  cd, pwd\n");
-    printf("C++:      c++ file.cpp -o name, then ./name   or   run file.cpp\n");
-    printf("System:   ps, top, free, df, kill, sleep, whoami, chmod, date, uname, clear,\n");
-    printf("          history\n");
-    printf("Shell:    a | b, a > file, a >> file, a < file, a &, a ; b, a && b,\n");
-    printf("          \"quotes\", *.txt, ~\n");
-    printf("Keys:     Up and Down for old commands, Left and Right to edit,\n");
-    printf("          Ctrl+C stops a program. Type exit to log out.\n");
+    printf("Processes:  ps, top, spawn <program>, kill [-9] <pid>, sleep, program &\n");
+    printf("Memory:     mem, pmap <pid>, free, memlog on|off\n");
+    printf("Resources:  resources, lsof [pid], df, banktest, ipctest\n");
+    printf("Files:      ls, cat, cp, mv, rm, touch, mkdir, rmdir, stat, edit, head,\n");
+    printf("            tail, grep, sort, wc, find, chmod\n");
+    printf("Folders:    cd, pwd\n");
+    printf("C++:        c++ file.cpp -o name, then ./name   or   run file.cpp\n");
+    printf("System:     whoami, date, uname, clear, history, shutdown\n");
+    printf("Shell:      a | b, a > file, a >> file, a < file, a &, a ; b, a && b,\n");
+    printf("            \"quotes\", *.txt, ~\n");
+    printf("Keys:       Up and Down for old commands, Left and Right to edit,\n");
+    printf("            Ctrl+C stops a program. Type exit to log out.\n");
+}
+
+// memlog on: the kernel prints the memory it gives each new process, and what
+// the process gives back when it ends. Every command started afterwards
+// inherits this from the shell.
+static bool set_memory_log(const struct command *command)
+{
+    if (command->argc > 1 && strcmp(command->argv[1], "on") == 0) {
+        memreport(true);
+        printf("memlog: on\n");
+        return true;
+    }
+    if (command->argc > 1 && strcmp(command->argv[1], "off") == 0) {
+        memreport(false);
+        printf("memlog: off\n");
+        return true;
+    }
+
+    fprintf(STDERR, "usage: memlog on|off\n");
+    return false;
 }
 
 static void save_to_history()
@@ -427,6 +454,11 @@ static bool run_builtin(const struct command *command, bool *worked)
         return true;
     }
 
+    if (strcmp(name, "memlog") == 0) {
+        *worked = set_memory_log(command);
+        return true;
+    }
+
     if (strcmp(name, "exit") == 0 || strcmp(name, "logout") == 0)
         exit(0);
 
@@ -471,6 +503,7 @@ int main()
 
     printf("\nWelcome to the OS Project shell, %s.\n", shell_user.name);
     printf("Type help to see what you can do, and exit to log out.\n");
+    printf("Try: spawn sleep 60, then ps, then kill <pid>.\n");
 
     for (;;) {
         char cwd[MAX_PATH];

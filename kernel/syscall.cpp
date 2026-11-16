@@ -74,5 +74,9 @@ void syscall_init()
     syscall_table[SYS_MMAP] = sys_mmap;
     syscall_table[SYS_MUNMAP] = sys_munmap;
     syscall_table[SYS_MEMINFO] = sys_meminfo;
+    syscall_table[SYS_PROCMEM] = sys_procmem;
+    syscall_table[SYS_PROCFILE] = sys_procfile;
+    syscall_table[SYS_MEMREPORT] = sys_memreport;
+    syscall_table[SYS_SHUTDOWN] = sys_shutdown;
     set_interrupt_handler(VECTOR_SYSCALL, syscall_interrupt);
 }

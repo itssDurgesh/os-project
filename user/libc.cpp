@@ -49,6 +49,39 @@ int default_signal(int signal_number) { return sigaction_call(signal_number, SIG
 void *mmap(uint32_t size) { return (void *)syscall3(SYS_MMAP, size, 0, 0); }
 int munmap(void *address) { return syscall3(SYS_MUNMAP, (uint32_t)address, 0, 0); }
 int meminfo(MemoryInfo *info) { return syscall3(SYS_MEMINFO, (uint32_t)info, 0, 0); }
+int procmem(int pid, struct procmem *info) { return syscall3(SYS_PROCMEM, pid, (uint32_t)info, 0); }
+int memreport(bool enabled) { return syscall3(SYS_MEMREPORT, enabled, 0, 0); }
+int shutdown() { return syscall3(SYS_SHUTDOWN, 0, 0, 0); }
+
+int procfile(int pid, int first_fd, struct fileinfo *info)
+{
+    return syscall3(SYS_PROCFILE, pid, first_fd, (uint32_t)info);
+}
+
+const char *process_state_name(int state)
+{
+    static const char *const names[] = {
+        "new", "ready", "running", "waiting", "zombie",
+    };
+
+    return (state >= 0 && state < 5) ? names[state] : "?";
+}
+
+const char *region_name(int kind)
+{
+    static const char *const names[] = {
+        "?", "code", "data", "heap", "stack", "mmap", "shared",
+    };
+
+    return (kind >= REGION_CODE && kind <= REGION_SHARED) ? names[kind] : "?";
+}
+
+const char *resource_name(int type)
+{
+    static const char *const names[] = { "pipes", "msg queues", "shared mem" };
+
+    return (type >= 0 && type < RESOURCE_TYPES) ? names[type] : "?";
+}
 
 int msgget(int key) { return syscall3(SYS_MSGGET, key, 0, 0); }
 
@@ -348,25 +381,53 @@ static void put_char(struct output *out, char c)
     out->buffer[out->length++] = c;
 }
 
-static void put_string(struct output *out, const char *text)
+// How a % item should be padded, read from text such as "-10" in "%-10s".
+struct padding {
+    int width;
+    bool left;          // '-': pad on the right instead of the left
+    char fill;          // '0' or ' '
+};
+
+static void put_padding(struct output *out, int length, const struct padding *pad)
 {
-    for (; *text != '\0'; text++)
-        put_char(out, *text);
+    for (int i = length; i < pad->width; i++)
+        put_char(out, pad->fill);
 }
 
-static void put_number(struct output *out, uint32_t value, uint32_t base)
+// Puts `text` (of `length` characters) with spaces or zeros around it.
+static void put_padded(struct output *out, const char *text, int length,
+                       const struct padding *pad)
+{
+    if (!pad->left)
+        put_padding(out, length, pad);
+
+    for (int i = 0; i < length; i++)
+        put_char(out, text[i]);
+
+    if (pad->left)
+        put_padding(out, length, pad);
+}
+
+static void put_number(struct output *out, uint32_t value, uint32_t base,
+                       bool negative, const struct padding *pad)
 {
     static const char digits[] = "0123456789abcdef";
-    char buffer[16];
+    char reversed[16];
+    char text[17];
     int length = 0;
+    int count = 0;
 
     do {
-        buffer[length++] = digits[value % base];
+        reversed[count++] = digits[value % base];
         value /= base;
     } while (value != 0);
 
-    while (length > 0)
-        put_char(out, buffer[--length]);
+    if (negative)
+        text[length++] = '-';
+    while (count > 0)
+        text[length++] = reversed[--count];
+
+    put_padded(out, text, length, pad);
 }
 
 static void format_to(int fd, const char *format, va_list args)
@@ -382,28 +443,46 @@ static void format_to(int fd, const char *format, va_list args)
             continue;
         }
 
+        struct padding pad = { 0, false, ' ' };
+
         format++;
+        if (*format == '-') {
+            pad.left = true;
+            format++;
+        }
+        if (*format == '0') {
+            pad.fill = '0';
+            format++;
+        }
+        while (*format >= '0' && *format <= '9') {
+            pad.width = pad.width * 10 + (*format - '0');
+            format++;
+        }
+        if (pad.left)
+            pad.fill = ' ';     // zeros after a number would change its value
+
         switch (*format) {
         case 'd': {
             int value = va_arg(args, int);
 
-            if (value < 0) {
-                put_char(&out, '-');
-                put_number(&out, -(uint32_t)value, 10);
-            } else {
-                put_number(&out, value, 10);
-            }
+            if (value < 0)
+                put_number(&out, -(uint32_t)value, 10, true, &pad);
+            else
+                put_number(&out, value, 10, false, &pad);
             break;
         }
         case 'u':
-            put_number(&out, va_arg(args, uint32_t), 10);
+            put_number(&out, va_arg(args, uint32_t), 10, false, &pad);
             break;
         case 'x':
-            put_number(&out, va_arg(args, uint32_t), 16);
+            put_number(&out, va_arg(args, uint32_t), 16, false, &pad);
             break;
-        case 's':
-            put_string(&out, va_arg(args, const char *));
+        case 's': {
+            const char *text = va_arg(args, const char *);
+
+            put_padded(&out, text, strlen(text), &pad);
             break;
+        }
         case 'c':
             put_char(&out, (char)va_arg(args, int));
             break;

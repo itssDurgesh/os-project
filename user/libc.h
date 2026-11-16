@@ -53,6 +53,15 @@ int set_quota(int pid, int ticks_per_second);
 void *mmap(uint32_t size);
 int munmap(void *address);
 int meminfo(MemoryInfo *info);
+int procmem(int pid, struct procmem *info);   // pid 0 means this process
+int procfile(int pid, int first_fd, struct fileinfo *info);
+int memreport(bool enabled);
+int shutdown();
+
+// Names for numbers the kernel uses
+const char *process_state_name(int state);
+const char *region_name(int kind);
+const char *resource_name(int type);
 
 // Message queues
 int msgget(int key);
@@ -93,7 +102,8 @@ const char *base_name(const char *path);  // the part after the last /
 bool join_path(const char *folder, const char *name, char *result);
 bool matches_pattern(const char *text, const char *pattern);  // * and ? wildcards
 
-// Output. Supports %d %u %x %s %c %%.
+// Output. Supports %d %u %x %s %c %%, and a width for tables: %5d is right
+// aligned, %-10s is left aligned and %08x fills with zeros.
 int printf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 int fprintf(int fd, const char *format, ...) __attribute__((format(printf, 2, 3)));
 const char *error_text(int error);

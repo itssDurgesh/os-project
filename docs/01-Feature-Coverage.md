@@ -4,9 +4,9 @@
 
 **Yes for OS concepts and for the commands people type most. There are still some gaps.**
 
-All six subsystems work, all 49 system calls exist, and the automatic tests pass. A professor can type normal Linux commands such as `kill -9`, `ls -la`, `wc -l`, `tail`, `sort`, `find`, `date`, `df` and `top`, and use quotes, `;`, `&&` and `*` in the shell.
+All six subsystems work, all 53 system calls exist, and the automatic tests pass. A professor can type normal Linux commands such as `kill -9`, `ls -la`, `wc -l`, `tail`, `sort`, `find`, `stat`, `lsof`, `date`, `df` and `top`, and use quotes, `;`, `&&` and `*` in the shell. They can also watch the kernel give memory to a new process and take it back (`spawn`, `mem`, `pmap`, `kill`, `memlog on`).
 
-Read section 3 before any demo. The biggest risk isn't a missing command, though: **`run.bat` hasn't been tested on Windows yet** (see section 8).
+The OS now runs inside the WSL Ubuntu terminal with `make run`. No window opens: QEMU still emulates the PC, but in the background. Read section 3 before any demo. The biggest risk isn't a missing command, though: **the terminal version has only been checked on the build laptop** (see section 8).
 
 ## How this was checked
 
@@ -15,10 +15,11 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 | Check | Result |
 | --- | --- |
 | Clean build | 0 compiler warnings |
-| `make test` | 110 passed, 0 failed |
+| `make test` | 120 passed, 0 failed (15 November 2026) |
 | Linux `e2fsck` on the disk after writing from our OS | Clean |
 | About 300 commands typed into the running OS | Results below |
 | Stress tests: 240 MB program, fork bomb | Results in section 6 |
+| 15 November 2026: process memory commands and running in the terminal | 110 old tests pass, plus 8 new `procmem` checks. A full session was typed into `make run` |
 
 ---
 
@@ -40,11 +41,20 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 | Use wildcards | `ls /etc/*.txt` | Works |
 | Change permissions | `chmod 600 file`, `chmod +x file` | Works |
 | Show a user being refused | As `student`: `cat /etc/shadow` | `permission denied` |
-| List processes | `ps`, `top`, `cat /proc/processes` | Works |
+| List processes | `ps`, `top`, `cat /proc/processes` | Works, `ps` shows each one's memory (MEM KB) and RAM |
 | Run in the background | `sleep 30 &` | Works |
+| Create a process and see its memory | `spawn sleep 60` (or `sleep 60 &`) | Table: PID, code, data, heap, stack, total and RAM in KB. It keeps running, and `ps` lists it |
+| See the memory of every process | `mem` | Table per process, then RAM and swap bars |
+| See one process's memory map | `pmap 5` | Each part, its addresses, size, RAM and swap |
+| Delete a process | `kill 5` | Table: PID, name, signal, RAM freed |
+| Watch memory for every command | `memlog on`, then any command | A `[created]` table row when it starts, an `[ended]` line with RAM freed |
 | End a process | `kill 4`, `kill -9 4` | Status 143, status 137 |
 | Stop a program | Ctrl+C | Works |
+| Show open files | `lsof`, `lsof 5` | Every descriptor: file, device or pipe |
+| Show resources per process | `resources` | Files, shared memory, CPU limit, Banker's resources |
+| Show a file's inode | `stat /etc/hello.txt` | Inode, size, links, mode, owner |
 | Show memory and disk use | `free`, `df`, `cat /proc/meminfo` | Works |
+| Turn the OS off | `shutdown` as root | Back to the Ubuntu prompt |
 | Show the date and time | `date` | Shows UTC, from the hardware clock |
 | Show the OS name | `uname -a` | `OS Project 1.0 i386` |
 | Search files | `grep -i root /etc/passwd`, `find / -name "*.txt"` | Works |
@@ -73,9 +83,10 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 | --- | --- | --- |
 | Booting | Yes | Boot messages. See the boot trace in the codebase guide |
 | User and kernel mode | Yes | `forktest`, invalid system call demo |
-| System calls | Yes, 49 | Full table in the codebase guide |
+| System calls | Yes, 53 | Full table in the codebase guide |
 | Process states | Yes | `ps`, `top`, `cat /proc/processes` |
-| Process creation | Yes | `fork` demo |
+| Process creation | Yes | `spawn sleep 60`, or the `fork` demo |
+| Memory given to a process | Yes | `spawn`, `mem`, `pmap`, `memlog on` |
 | Zombies and orphans | Yes | Zombie demo. Orphans are adopted by PID 1 |
 | CPU scheduling | **Partly** | Round-Robin with priorities and aging only. FCFS, SJF and others aren't there |
 | Changing priority | **No** | No `nice`. User programs all run at priority 2 |
@@ -91,7 +102,8 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 | Swapping | Yes | `swaptest` |
 | Copy-on-write | **No** | `fork` copies memory |
 | Filesystems | Yes | ext2, devfs, tmpfs, procfs |
-| Inodes and directories | Yes | Not directly visible, as there's no `stat` command |
+| Inodes and directories | Yes | `stat file` shows the inode number, links and mode |
+| Open file table | Yes | `lsof` |
 | File permissions | Yes | `ls -l`, `chmod`, `student` user |
 | Hard and symbolic links | **No** | No `ln` |
 | Disk scheduling | **No** | No FCFS, SCAN or SSTF. Requests are served one at a time |
@@ -127,13 +139,13 @@ Nothing here comes from the docs alone. Each item was run on 1 November 2026, on
 
 | Group | Missing | Why |
 | --- | --- | --- |
-| Files | `ln`, `chown`, `du`, `stat` | `ln` and `chown` need new system calls |
+| Files | `ln`, `chown`, `du` | `ln` and `chown` need new system calls |
 | System | `nice`, `env`, `which`, `man` | `nice` needs a new system call |
 | Users | `useradd`, `passwd` | Accounts are made when the disk image is built |
-| Power | `shutdown`, `reboot` | Type `exit`, then close the window |
+| Power | `reboot` | Use `shutdown`, then `make run` again |
 | Tools | `gcc`, `nano`, `vi`, `python` | Use `c++` and `edit` |
 
-The commands that exist are: `banktest`, `c++`, `cat`, `chmod`, `clear`, `cp`, `date`, `df`, `echo`, `edit`, `find`, `forktest`, `free`, `fstest`, `grep`, `head`, `ipctest`, `keytest`, `kill`, `login`, `ls`, `mkdir`, `mousetest`, `mv`, `permtest`, `ps`, `pwd`, `quotatest`, `rm`, `rmdir`, `run`, `sh`, `sigtest`, `sleep`, `sort`, `swaptest`, `tail`, `tmptest`, `top`, `touch`, `uname`, `wc`, `whoami`, plus the shell's own `cd`, `help`, `history` and `exit`.
+The commands that exist are: `banktest`, `c++`, `cat`, `chmod`, `clear`, `cp`, `date`, `df`, `echo`, `edit`, `find`, `forktest`, `free`, `fstest`, `grep`, `head`, `ipctest`, `keytest`, `kill`, `login`, `ls`, `lsof`, `mem`, `mkdir`, `mousetest`, `mv`, `permtest`, `pmap`, `ps`, `pwd`, `quotatest`, `resources`, `rm`, `rmdir`, `run`, `sh`, `shutdown`, `sigtest`, `sleep`, `sort`, `spawn`, `stat`, `swaptest`, `tail`, `tmptest`, `top`, `touch`, `uname`, `wc`, `whoami`, plus the shell's own `cd`, `help`, `history`, `memlog` and `exit`.
 
 ---
 
@@ -162,7 +174,7 @@ Lab exercises that use structs, 2D arrays or decimals won't compile in the OS. A
 | Writing to a bad address | `segmentation fault at ..., process ended` | Good: the OS stays up |
 | 240 MB program (RAM is 128 MB, swap 32 MB) | `out of memory`, then the program ended. Memory returned to normal | Good: the OS stays up |
 | Fork bomb | `fork` fails at 64 processes. Ctrl+C stops them all, and the shell carries on | Good: the OS stays up |
-| Fork bomb in the background (`/tmp/bomb &`) | The OS stays up, but background programs ignore Ctrl+C, and the shell prints `too many processes` for every command | **Weak: you have to restart QEMU** |
+| Fork bomb in the background (`/tmp/bomb &`) | The OS stays up, but background programs ignore Ctrl+C, and the shell prints `too many processes` for every command | **Weak: you have to restart the OS** (Ctrl+A then X, then `make run`) |
 
 **Fork bomb program:**
 
@@ -192,7 +204,7 @@ The PRD names some test programs that don't exist under those names.
 | `locktest` | Inside `ipctest` | In the OS |
 | `banktest` | `banktest` | In the OS |
 | `fstest` | `fstest`, `permtest` | In the OS |
-| Boot on six laptops | **Not done yet** | See section 8 |
+| Boot on six laptops | **1 of 6 done** | See section 8 |
 | Invalid system call | Inside `forktest`, and the `__syscall(999, ...)` demo | In the OS |
 | Test panic | `panic` boot test | `make test` only |
 
@@ -204,9 +216,10 @@ The PRD names some test programs that don't exist under those names.
 
 | Item | Status |
 | --- | --- |
-| `run.bat` with QEMU for Windows | **Not tested.** QEMU for Windows isn't installed on the build laptop. The team requirement is all 6 Windows laptops |
+| `make run` in the WSL Ubuntu terminal | **Passed on the build laptop** on 15 November 2026: login, `spawn`, `ps`, `mem`, `pmap`, `lsof`, `resources`, `kill`, `memlog`, `shutdown`. The other 5 laptops still need to try it |
+| `run.bat` with QEMU for Windows (backup only) | **Passed on the build laptop** on 2 November 2026, with QEMU 11.1.0: login, keyboard, `free`, a pipe and the C++ compiler. The automatic tests and heavier demos such as `swaptest` have only run on QEMU 10.2.1 |
 | VirtualBox | Not tested |
-| Running on all 6 laptops | Not tested. The laptop check-off table in the PRD is empty |
+| Running on all 6 laptops | 1 of 6 done. The other 5 must still fill in the laptop check-off table in the PRD |
 | Projector display | Not tested |
 
 **The PRD's open questions for the instructor still have no answer:**
@@ -224,7 +237,7 @@ In order of risk:
 
 | # | Task | Why |
 | --- | --- | --- |
-| 1 | Test `run.bat` on all 6 laptops | The OS must run on everyone's laptop |
+| 1 | Run `make run` in the WSL terminal on the other 5 laptops | The OS must run on everyone's laptop |
 | 2 | Ask the instructor the 4 open questions | GRUB could affect marks |
 | 3 | Add `nice`, which needs a new system call | Lets you show priorities from the shell |
 | 4 | Add `schedtest`, `cachetest` and `locktest` as real commands | Matches the PRD's test names, and works in a live demo |

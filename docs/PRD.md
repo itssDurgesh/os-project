@@ -618,7 +618,7 @@ The OS must run on all six teammates' Windows 11 laptops.
 
 **Build once, share one image.** One machine builds `os.img`. Everyone gets the same ZIP with `os.img`, `run.bat` and a short README, and installs the same QEMU for Windows version. Teammates don't need WSL and never compile, so compiler differences can't affect them.
 
-Starting point for `run.bat` (not tested yet):
+The main command in `run.bat` (passed on the build laptop with QEMU 11.1.0):
 
 ```bat
 @echo off
@@ -654,6 +654,8 @@ Starting point for `run.bat` (not tested yet):
 | Resource Management | | | |
 | File Handling | | | |
 | Integration | | | |
+
+**Build laptop:** AMD Ryzen 7 7840HS, QEMU 11.1.0, passed on 2 November 2026. Copy this into the row of the teammate who owns that laptop.
 
 ## Acceptance Tests
 
@@ -706,7 +708,7 @@ The code is in the private repo `itssDurgesh/os-project`. `make test` boots the 
 | Text editor, `cp`, `mv`, `grep`, background programs, command history | Done and tested |
 | Small C++ compiler that runs inside the OS | Done and tested, including a 58-check feature test |
 | Framebuffer, threads for user programs, copy-on-write | Not built |
-| Running through QEMU for Windows with `run.bat` | Not tested yet |
+| Running through QEMU for Windows with `run.bat` | Passed on 1 of 6 laptops |
 
 ## Open Questions for the Instructor
 

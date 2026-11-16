@@ -26,6 +26,25 @@ static int find_free_fd()
     return -EMFILE;
 }
 
+// Saves the full path in the File, so lsof can show which file it is. A relative
+// path gets the current folder in front.
+static void remember_file_name(File *file, const char *path)
+{
+    char full_path[MAX_PATH];
+    uint32_t length = 0;
+
+    if (path[0] != '/') {
+        copy_string(full_path, current_process->cwd_path, MAX_PATH);
+        length = strlen(full_path);
+        // "/" already ends in a slash. Any other folder needs one added.
+        if (length > 1 && length + 1 < MAX_PATH)
+            full_path[length++] = '/';
+    }
+
+    copy_string(full_path + length, path, MAX_PATH - length);
+    copy_string(file->name, full_path, FILE_NAME_LENGTH);
+}
+
 int sys_open(Registers *r)
 {
     char path[MAX_PATH];
@@ -45,6 +64,7 @@ int sys_open(Registers *r)
     if (status != 0)
         return status;
 
+    remember_file_name(file, path);
     current_process->files[fd] = file;
     return fd;
 }
@@ -380,4 +400,51 @@ int sys_dup2(Registers *r)
     hold_file(file);
     current_process->files[new_fd] = file;
     return new_fd;
+}
+
+// SYS_PROCFILE, for lsof: ebx = pid (0 means me), ecx = the first fd to look at,
+// edx = struct fileinfo to fill in. Returns the fd it found, or -ENOENT when the
+// process has no more open files.
+int sys_procfile(Registers *r)
+{
+    int pid = (int)r->ebx;
+    int first_fd = (int)r->ecx;
+    struct fileinfo *output = (struct fileinfo *)r->edx;
+    struct fileinfo info;
+    Process *process;
+
+    if (!user_range_valid(output, sizeof(*output), true))
+        return -EFAULT;
+
+    process = (pid == 0) ? current_process : find_process(pid);
+    if (process == nullptr)
+        return -ESRCH;
+    if (process->files == nullptr || first_fd < 0)
+        return -ENOENT;
+
+    for (int fd = first_fd; fd < MAX_OPEN_FILES; fd++) {
+        File *file = process->files[fd];
+
+        if (file == nullptr)
+            continue;
+
+        memset(&info, 0, sizeof(info));
+        info.fd = fd;
+        info.flags = file->flags;
+        info.offset = file->offset;
+        info.shared_by = file->refcount;
+        copy_string(info.name, file->name, FILE_NAME_LENGTH);
+
+        if (file->inode == nullptr) {
+            info.kind = FILE_KIND_PIPE;
+        } else {
+            info.kind = file->inode->type;   // the same numbers as FILE_KIND_
+            info.size = file->inode->size;
+            info.inode = file->inode->number;
+        }
+
+        memcpy(output, &info, sizeof(info));
+        return fd;
+    }
+    return -ENOENT;
 }

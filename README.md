@@ -2,7 +2,8 @@
 
 A small operating system written in C++ for 32-bit x86. It boots through GRUB,
 has login, processes, virtual memory with swap, a real ext2 filesystem, pipes,
-signals and a shell. It runs inside the QEMU emulator.
+signals and a shell. It runs right inside your WSL Ubuntu terminal: `make run`
+starts it there, with no extra window.
 
 To set this up on your own laptop, see [SETUP.md](SETUP.md). The project plan, the
 team's tasks and the viva preparation are in [docs](docs/README.md).
@@ -20,7 +21,8 @@ Then, in this folder:
 | Command | What it does |
 | --- | --- |
 | `make` | Builds the kernel, the programs and the disk image |
-| `make run` | Starts the OS in a QEMU window |
+| `make run` | Starts the OS in this Ubuntu terminal |
+| `make run-window` | Starts it in a separate window instead (shows the VGA screen) |
 | `make test` | Runs all the automatic tests (takes about 6 minutes) |
 | `make dist` | Makes `build/os-demo.zip` for Windows laptops |
 | `make clean` | Deletes everything that was built |
@@ -32,16 +34,40 @@ Then, in this folder:
 | `root` | `root` | Can do anything |
 | `student` | `student` | A normal user, limited by file permissions |
 
-These are demo passwords for the assignment. Type `exit` to log out.
+These are demo passwords for the assignment. Type `exit` to log out. To leave
+the OS and get your Ubuntu prompt back, log in as root and type `shutdown`, or
+press **Ctrl+A** and then **X** at any time.
 
 Type `help` in the shell to see everything.
 
 | Area | Commands |
 | --- | --- |
-| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `head`, `tail`, `grep`, `sort`, `wc`, `find` |
+| Processes | `ps`, `top`, `spawn <program>`, `kill [-9] <pid>`, `sleep`, `program &` |
+| Memory | `mem`, `pmap <pid>`, `free`, `memlog on` / `memlog off` |
+| Resources | `resources`, `lsof [pid]`, `df`, `banktest`, `ipctest` |
+| Files | `ls`, `cat`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `rmdir`, `stat`, `head`, `tail`, `grep`, `sort`, `wc`, `find`, `chmod` |
 | Editing | `edit file.txt` |
 | C++ | `c++ file.cpp -o name`, `run file.cpp` |
-| System | `ps`, `top`, `free`, `df`, `kill`, `sleep`, `whoami`, `chmod`, `date`, `uname`, `clear`, `history` |
+| System | `whoami`, `date`, `uname`, `clear`, `history`, `shutdown` |
+
+## Processes and their memory
+
+```text
+spawn sleep 60      creates a background process: prints its PID and memory table
+sleep 60 &          also runs in the background (plain `sleep 60` waits for it)
+ps                  every process: PID, state, MEM KB and RAM KB
+mem                 code, data, heap, stack, mmap and shared memory of every process
+pmap 5              each part of process 5's memory, with addresses
+lsof                every open file of every process
+resources           open files, shared memory and Banker's resources per process
+kill 5              deletes process 5 and shows the RAM freed
+memlog on           one table row for every command you start, one line when it ends
+```
+
+How it works: the new `SYS_PROCMEM` and `SYS_PROCFILE` system calls let these
+programs read a process's memory areas and open files from its PCB. With
+`memlog on` (`SYS_MEMREPORT`), the kernel prints a line from `exec()` and
+`exit()`. The code is in `memory/process_memory.cpp`.
 
 The usual options work: `ls -la`, `kill -9 5`, `wc -l`, `head -n 5`, `tail -n 5`,
 `grep -i`, `grep -v`, `grep -n`, `sort -r`, `sort -n`, `chmod +x`, `mkdir -p`,
@@ -91,8 +117,8 @@ It's a small subset of C++: there are no classes, structs, pointers, references,
 templates, `vector`, `switch` or file streams. `#include` lines are skipped,
 because everything it supports is built in. Each program is compiled from one file.
 
-Changes on the disk are thrown away when QEMU closes, so each `make run` starts
-clean. Remove `-snapshot` from the Makefile to keep them.
+Changes on the disk are thrown away when the OS turns off, so each `make run`
+starts clean. Remove `-snapshot` from the Makefile to keep them.
 
 ## Where everything is
 

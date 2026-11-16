@@ -59,7 +59,12 @@
 
 #define SYS_MEMINFO     49
 
-#define SYSCALL_COUNT   50
+#define SYS_PROCMEM     50      // the memory and resources of one process
+#define SYS_PROCFILE    51      // one open file of one process
+#define SYS_MEMREPORT   52      // print memory reports when programs start and end
+#define SYS_SHUTDOWN    53      // turn the computer off
+
+#define SYSCALL_COUNT   54
 
 #define MAX_FILE_NAME 255
 #define MAX_PATH      256
@@ -139,6 +144,70 @@ struct procinfo {
     int priority;
     uint32_t cpu_ticks;
     char name[PROCESS_NAME_LENGTH];
+};
+
+// What one part of a process's memory is used for.
+#define REGION_CODE   1         // program instructions, read-only
+#define REGION_DATA   2         // global variables
+#define REGION_HEAP   3         // malloc() memory, grows with brk/sbrk
+#define REGION_STACK  4         // local variables and function calls
+#define REGION_MMAP   5         // extra memory asked for with mmap()
+#define REGION_SHARED 6         // shared memory, also seen by other processes
+
+#define MAX_REGIONS 20          // 16 memory areas + 4 shared segments
+
+struct memregion {
+    uint32_t kind;              // REGION_ value
+    uint32_t start;
+    uint32_t end;               // first address after the region
+    uint32_t writable;
+    uint32_t pages_in_ram;
+    uint32_t pages_in_swap;
+};
+
+// Everything the kernel has given to one process: memory and resources.
+struct procmem {
+    int pid;
+    int parent_pid;
+    int uid;
+    int state;
+    char name[PROCESS_NAME_LENGTH];
+
+    uint32_t region_count;
+    struct memregion regions[MAX_REGIONS];
+
+    uint32_t kernel_stack_bytes;   // the stack the kernel uses for this process
+    uint32_t page_table_pages;     // page directory and page tables
+    uint32_t pcb_bytes;            // the process control block itself
+
+    uint32_t open_files;
+    uint32_t shared_segments;
+    uint32_t cpu_quota;            // ticks per second, 0 = no limit
+    uint32_t pending_signals;      // one bit per signal
+
+    int resources_held[RESOURCE_TYPES];    // Banker's Algorithm
+    int resources_maximum[RESOURCE_TYPES];
+    int resources_total[RESOURCE_TYPES];   // for the whole system
+    int resources_available[RESOURCE_TYPES];
+};
+
+#define FILE_NAME_LENGTH 48
+
+#define FILE_KIND_FILE      1
+#define FILE_KIND_DIRECTORY 2
+#define FILE_KIND_DEVICE    3
+#define FILE_KIND_PIPE      4
+
+// One open file of a process, for lsof.
+struct fileinfo {
+    int fd;
+    uint32_t kind;              // FILE_KIND_ value
+    uint32_t flags;             // O_ flags it was opened with
+    uint32_t offset;            // where the next read or write happens
+    uint32_t size;
+    uint32_t inode;
+    uint32_t shared_by;         // how many descriptors point at this open file
+    char name[FILE_NAME_LENGTH];
 };
 
 #endif

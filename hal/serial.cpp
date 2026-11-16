@@ -53,3 +53,19 @@ void qemu_exit(uint8_t code)
 {
     outb(QEMU_EXIT_PORT, code);
 }
+
+// The PC's ACPI power button lives at port 0x604. Writing "sleep type 5, go"
+// there turns the machine off, and the terminal comes back to Ubuntu.
+#define ACPI_POWER_PORT 0x604
+#define ACPI_POWER_OFF  0x2000
+
+void power_off()
+{
+    outw(ACPI_POWER_PORT, ACPI_POWER_OFF);
+
+    // Only reached if there is no ACPI: stop the CPU instead.
+    for (;;) {
+        disable_interrupts();
+        halt_cpu();
+    }
+}

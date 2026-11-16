@@ -69,6 +69,7 @@ public:
     uint32_t flags = 0;
     uint32_t offset = 0;
     Inode *inode = nullptr;     // stays nullptr for a pipe
+    char name[FILE_NAME_LENGTH] = "";   // the path it was opened with, for lsof
 
     virtual ~File() {}
 

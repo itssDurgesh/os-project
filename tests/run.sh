@@ -291,6 +291,22 @@ commands_test() {
     report "mkdir-p-as-student" "$log" "^b/$"
 }
 
+# Creates a process, looks at its memory, files and resources, then deletes it.
+procmem_test() {
+    local log=build/test-procmem.log
+
+    SHELL_DELAY=1.5 shell_test procmem tests/procmem-commands.txt "^memory-done"
+    report "spawn-memory-report" "$log" "^    5  sleep  *[0-9]* *[0-9]* *[0-9]* *1024 "
+    report "ps-shows-spawned" "$log" "^    5     1  root      waiting .* sleep$"
+    report "memlog-row" "$log" "^          *[0-9]* .* echo$"
+    report "pmap-stack" "$log" "^stack   0xbff00000  0xc0000000"
+    report "mem-ram-bar" "$log" "^RAM   \[[#.]*\]"
+    report "lsof-dev-null" "$log" "^    5  sleep        0  device r .*/dev/null$"
+    report "resources-banker" "$log" "^  pipes       8 total"
+    report "stat-inode" "$log" "^  Inode: [0-9]*    Links: 1$"
+    report "kill-frees-memory" "$log" "^    5  sleep  *15  *[0-9]*$"
+}
+
 # A fork bomb must end only the programs in it, not the whole OS.
 forkbomb_test() {
     local log=build/test-forkbomb.log
@@ -394,6 +410,7 @@ tools_test
 commands_test
 compiler_test
 forkbomb_test
+procmem_test
 shell_test tmptest tests/tmptest-commands.txt "TEST-PASS tmptest"
 SHELL_WAIT=70 shell_test swaptest tests/swaptest-commands.txt "TEST-PASS swaptest"
 SHELL_WAIT=3 shell_test sigtest tests/sigtest-commands.txt "TEST-PASS sigtest"

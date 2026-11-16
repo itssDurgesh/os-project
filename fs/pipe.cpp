@@ -3,6 +3,7 @@
 // needed here.
 
 #include "errno.h"
+#include "kstring.h"
 #include "memory.h"
 #include "process.h"
 #include "vfs.h"
@@ -127,6 +128,9 @@ int pipe_create(File **read_end, File **write_end)
 
     writer->pipe = pipe;
     writer->flags = O_WRONLY;
+
+    copy_string(reader->name, "pipe (read end)", FILE_NAME_LENGTH);
+    copy_string(writer->name, "pipe (write end)", FILE_NAME_LENGTH);
 
     *read_end = reader;
     *write_end = writer;

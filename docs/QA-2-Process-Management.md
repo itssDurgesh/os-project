@@ -362,6 +362,18 @@ Each process has its own page map. `paging_switch` loads `CR3`, which flushes ol
 **74. Why doesn't the file position reset after `fork`?**
 Parent and child share one `File` object, which holds the offset. `process_fork` calls `hold_file` to count both users.
 
+**75. Show a process being created and deleted.**
+`spawn sleep 60` prints the new PID and its memory in one table row. `ps` lists it as `waiting`, with its MEM KB and RAM KB. `kill 5` deletes it and prints the RAM freed. `sleep 60 &` also works. Plain `sleep 60` runs in the foreground, so the shell waits for it.
+
+**76. How does `spawn` work?**
+It checks the program exists with `stat`, then calls `fork`. The child sends its input to `/dev/null`, ignores Ctrl+C, and calls `exec`. The parent waits until the child's name changes, which means `exec` is done, then reads its memory with the `procmem` system call.
+
+**77. Why does a spawned process show PPID 1?**
+`spawn` exits straight away, so its child becomes an orphan and `process_exit` gives it to `init`. `init` collects it with `wait` when it ends.
+
+**78. How does `kill` know the memory was freed?**
+It reads the RAM with `procmem` first, sends the signal, then checks every 20 ms until the process is gone or a zombie. A zombie has already released its pages in `process_exit`.
+
 ---
 
 ## Be honest about these

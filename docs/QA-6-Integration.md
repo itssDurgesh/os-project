@@ -24,7 +24,7 @@
 | Panic | Stops the system before it can corrupt data | A broken kernel could damage the disk |
 | `abi.h` | One file both kernel and programs agree on | Syscall numbers could get out of step |
 | libc wrappers | Programs call `read()`, not assembly | Each program would need its own `int 0x80` code |
-| QEMU | Same virtual PC on every laptop, and safe | A real boot could fail on modern hardware or harm Windows |
+| QEMU, hidden in the Ubuntu terminal | Same virtual PC on every laptop, and safe. `-nographic` joins the PC's serial port to the terminal, so no window opens | A real boot could fail on modern hardware or harm Windows |
 | Automated tests | `make test` proves each feature on every change | Fixes could silently break something else |
 | Serial logging | `boot.log` survives a crash | A failed boot would give no clue |
 
@@ -48,11 +48,11 @@
 
 | Show this | Type this | You should see |
 | --- | --- | --- |
-| Boot | Start the OS | `Disk: using DMA`, `127 MB RAM, 125 MB free.`, `BOOT-OK`, the login prompt |
+| Boot | `make run` | `Disk: using DMA`, the `OS Project kernel is running` banner with `127 MB RAM, 125 MB free`, `BOOT-OK`, the login prompt |
 | Login | `root` / `root`, then `whoami` | `root` |
 | Wrong password | Any wrong password | `Login incorrect` |
 | Help | `help` | The list of commands |
-| The shell | `ls /bin \| wc` | `43 43 244` |
+| The shell | `ls /bin \| wc` | `50 50 288` |
 | Invalid system call | See the program below | `-38`, which is `-ENOSYS` |
 | Crash is contained | Divide by zero in a program | `CPU exception at ..., process ended`, and the shell carries on |
 | Compiler | `run /examples/fibonacci.cpp` | `0 1 1 2 3 5 8 13 21 34` |
@@ -320,13 +320,16 @@ There's no C library, and GCC may generate calls to `memcpy` by itself.
 `qemu_exit` writes to port `0xF4`, a debug-exit device added only during tests.
 
 **71. How many tests pass?**
-All 110, on a clean build of commit `9e9ae97`, with no compiler warnings. It takes about 6 to 8 minutes.
+All 120, with no compiler warnings (checked 15 November 2026). It takes about 6 to 8 minutes.
 
 **72. Why QEMU and not a real laptop?**
 Our OS targets old BIOS PCs with IDE disks. Modern laptops use UEFI and NVMe, so it wouldn't boot, and a mistake could erase Windows.
 
 **73. Has it run on every laptop?**
-Be honest here. Running through WSL with Ubuntu is tested. `run.bat` with QEMU for Windows is **not tested yet**.
+Be honest here. `make run` in the WSL Ubuntu terminal is fully tested on the build laptop. The other five laptops still need to try it. `run.bat` with QEMU for Windows is only a backup, and it **passed on one laptop**, with QEMU 11.1.0.
+
+**73a. Does the OS really run in the Ubuntu terminal?**
+It runs in QEMU, which emulates an old PC. `make run` starts QEMU with `-nographic`, so there is no window: the PC's serial port is joined to the terminal. Keys you type go to the serial port, `serial_received` in `resource/keyboard.cpp` turns Enter (`\r`) into `\n`, and `kprintf` sends output back the same way. The kernel can't run as a normal Linux program, because it needs its own page tables, interrupts and ring 0.
 
 **74. Why `-snapshot`?**
 Changes are thrown away, so every run starts clean and a bad run can't damage the image.
@@ -342,7 +345,7 @@ A crash stops instead of looping, so `boot.log` keeps the error.
 It's an open question for the instructor in the PRD. Get an answer before the viva.
 
 **77. Can the OS shut itself down?**
-No. There's no `shutdown` command. Type `exit`, then close the QEMU window.
+Yes. As root, type `shutdown`. `sys_shutdown` calls `power_off` in `hal/serial.cpp`, which writes `0x2000` to the ACPI port `0x604`. QEMU turns off and you get the Ubuntu prompt back. Ctrl+A then X also quits at any time.
 
 **78. Does the shell support `;`, `&&`, quotes or `*`?**
 Yes, plus `?` wildcards and `~`. It doesn't support `||`, variables, or wildcards in the middle of a path, such as `/*/hello.txt`.
@@ -363,7 +366,7 @@ It only handles whole-number types, and the OS doesn't save floating-point regis
 Yes, through the compiler's `__syscall`. `__syscall(1, 0, 0, 0)` is `fork`, and we tested it.
 
 **84. Can a bad program crash the whole OS?**
-Bad pointers and divide by zero end only that program. Using too much memory ends that program too. A fork bomb hits the 64-process limit, and Ctrl+C stops it. We tested all of these, and the OS stayed up each time. One gap is left: a fork bomb started in the background with `&` ignores Ctrl+C, and at the limit the shell can't start `kill`, so you would have to restart QEMU.
+Bad pointers and divide by zero end only that program. Using too much memory ends that program too. A fork bomb hits the 64-process limit, and Ctrl+C stops it. We tested all of these, and the OS stayed up each time. One gap is left: a fork bomb started in the background with `&` ignores Ctrl+C, and at the limit the shell can't start `kill`, so you would have to restart the OS (Ctrl+A then X, then `make run`).
 
 **84a. How does `date` know the time?**
 `rtc_read` in `hal/rtc.cpp` reads the CMOS real-time clock chip, which QEMU sets from the laptop's clock in UTC. File timestamps still use seconds since boot.
@@ -397,7 +400,7 @@ Port I/O, the PIC, the IDT and PCI.
 
 ## Be honest about these
 
-- `run.bat` hasn't been tested on Windows.
+- `run.bat` has only been tested on one Windows laptop.
 - The shell has no variables, `||` or scripts.
 - There's no `shutdown`, `nice`, `useradd` or `passwd`.
 - A background fork bomb needs a QEMU restart.

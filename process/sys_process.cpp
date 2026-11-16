@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "console.h"
 #include "errno.h"
 #include "kstring.h"
 #include "memory.h"
@@ -153,6 +154,19 @@ int sys_procinfo(Registers *r)
         }
     }
     return 0;
+}
+
+// Only root may turn the computer off. The disk cache is write-through, so
+// everything is already saved.
+int sys_shutdown(Registers *r)
+{
+    (void)r;
+
+    if (current_process->uid != 0)
+        return -EPERM;
+
+    kprintf("\n[kernel] Shutting down. Goodbye!\n");
+    power_off();
 }
 
 // Sleeps for a number of milliseconds.

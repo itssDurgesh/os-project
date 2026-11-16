@@ -257,6 +257,9 @@ int process_exec(const char *path, char *const argv[], Registers *r)
 
     set_name_from_path(path);
 
+    if (current_process->report_memory)
+        report_new_program(current_process, path);
+
     memset(r, 0, sizeof(*r));
     r->ds = r->es = r->fs = r->gs = USER_DATA_SELECTOR;
     r->user_ss = USER_DATA_SELECTOR;
@@ -316,6 +319,7 @@ int process_fork(const Registers *r)
     child->next_mmap_address = current_process->next_mmap_address;
     copy_memory_areas(current_process->areas, child->areas);
     child->cpu_quota = current_process->cpu_quota;
+    child->report_memory = current_process->report_memory;
     for (int i = 0; i < NUM_SIGNALS; i++)
         child->signal_handlers[i] = current_process->signal_handlers[i];
     child->signal_return_address = current_process->signal_return_address;
@@ -368,6 +372,9 @@ void process_exit(int status)
     uint32_t *old_page_dir = current_process->page_dir;
 
     enable_interrupts();
+
+    if (current_process->report_memory)
+        report_process_end(current_process, status);
 
     banker_process_exit(current_process);
     shared_memory_detach_all(current_process);
